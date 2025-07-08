@@ -67,7 +67,8 @@ body {
     background-color 0.5s;
   line-height: 1.6;
   font-family:
-    Inter,
+    'LXGW',
+    'Inter',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
@@ -83,4 +84,74 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@font-face {
+  font-family: 'LXGW';
+  src: url('/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW';
+  src: url('/fonts/LXGWWenKai-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW';
+  src: url('/fonts/LXGWWenKai-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW Mono';
+  src: url('/fonts/LXGWWenKaiMono-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW Mono';
+  src: url('/fonts/LXGWWenKaiMono-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LXGW Mono';
+  src: url('/fonts/LXGWWenKaiMono-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Apply LXGW font to Chinese text specifically */
+.chinese-text,
+[lang="zh"],
+[lang="zh-CN"],
+[lang="zh-TW"] {
+  font-family: 'LXGW', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Force font preload for better performance */
+@font-face {
+  font-family: 'LXGW-preload';
+  src: url('/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+/* Debug font loading */
+@media screen {
+  body {
+    font-family: 'LXGW', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  }
 }

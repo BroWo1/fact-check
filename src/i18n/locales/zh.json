@@ -1,0 +1,54 @@
+{
+  "app": {
+    "website": "YiYanDingZhen.com",
+    "title": "一眼丁真",
+    "subtitle": "鉴定为...",
+    "inputPlaceholder": "在此处粘贴您的新闻文章、社交媒体帖子或声明进行事实核查...您也可以直接拖放或粘贴图片！",
+    "analyzing": "分析中...",
+    "factCheck": "开始鉴定",
+    "exampleTitle": "尝试示例：",
+    "infoText": "我们的AI会对照可靠来源分析声明，并提供详细的验证报告"
+  },
+  "results": {
+    "claimAnalyzed": "分析的声明",
+    "analysis": "分析",
+    "citations": "引用",
+    "evidence": "证据",
+    "keyFindings": "关键发现",
+    "supportingEvidence": "支持证据",
+    "contradictoryEvidence": "相反证据",
+    "confidence": "置信度",
+    "analysisCompleted": "分析完成",
+    "downloadImage": "📥 下载图片",
+    "copyToClipboard": "📋 复制到剪贴板",
+    "shareResults": "分享结果",
+    "copyImageFailed": "复制到剪贴板失败。您的浏览器可能不支持此功能。",
+    "copyImageSuccess": "图片已复制到剪贴板！"
+  },
+  "verdict": {
+    "true": "真实",
+    "likely_true": "可能真实",
+    "likely": "可能真实",
+    "uncertain": "不确定",
+    "likely_false": "可能虚假",
+    "suspicious": "可疑",
+    "false": "虚假",
+    "unknown": "未知"
+  },
+  "languageSelector": {
+    "label": "语言",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "savedAnalyses": {
+    "title": "已保存分析",
+    "recentAnalyses": "最近分析",
+    "noAnalyses": "还没有保存的分析",
+    "clearAll": "全部清除",
+    "confirmClearAll": "您确定要删除所有已保存的分析吗？此操作无法撤销。",
+    "showMore": "显示更多",
+    "more": "更多",
+    "analysisDeleted": "分析已删除",
+    "allAnalysesCleared": "所有分析已清除"
+  }
+}

@@ -1,16 +1,49 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Input, Button, Typography, Space, Layout, Upload } from 'ant-design-vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { Input, Button, Typography, Space, Layout, Upload, notification } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
+import { useFactCheck } from './composables/useFactCheck'
+import { useSavedAnalyses } from './composables/useSavedAnalyses'
+import AnalysisProgress from './components/Progress2.vue'
+import FactCheckResults from './components/FactCheckResults.vue'
+import LanguageSelector from './components/LanguageSelector.vue'
+import SavedAnalysesDropdown from './components/SavedAnalysesDropdown.vue'
 
 const { Title, Paragraph } = Typography
 const { Header, Content } = Layout
+const { t, locale } = useI18n()
 
+// Watch for locale changes to set document language
+watch(locale, (newLocale) => {
+  document.documentElement.lang = newLocale === 'zh' ? 'zh-CN' : 'en'
+}, { immediate: true })
+
+// Original state
 const inputText = ref('')
-const isLoading = ref(false)
 const currentExampleIndex = ref(0)
 const uploadedFile = ref(null)
 const imagePreview = ref('')
 const isDragOver = ref(false)
+const isMobileMenuOpen = ref(false)
+const headerActionsRef = ref(null)
+
+// Fact-check integration
+const { 
+  isLoading, 
+  sessionId, 
+  error, 
+  results, 
+  originalClaim,
+  progress, 
+  isConnected,
+  usePolling,
+  startFactCheck,
+  cancelFactCheck,
+  resetState
+} = useFactCheck()
+
+// Saved analyses integration
+const { saveAnalysis, savedAnalyses } = useSavedAnalyses()
 
 const examples = ref([
   "New study shows that drinking 8 glasses of water daily can boost brain function by 30%",
@@ -28,14 +61,22 @@ const rotateExample = () => {
   currentExample.value = examples.value[currentExampleIndex.value]
 }
 
+const handleClickOutside = (event) => {
+  if (isMobileMenuOpen.value && headerActionsRef.value && !headerActionsRef.value.contains(event.target)) {
+    isMobileMenuOpen.value = false;
+  }
+};
+
 onMounted(() => {
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
+  document.addEventListener('click', handleClickOutside);
 })
 
 onUnmounted(() => {
   if (rotationInterval) {
     clearInterval(rotationInterval)
   }
+  document.removeEventListener('click', handleClickOutside);
 })
 
 const selectExample = (example) => {
@@ -115,21 +156,129 @@ const triggerFileUpload = () => {
   document.getElementById('photo-upload').click()
 }
 
-const handleSubmit = () => {
+const analysisProgressRef = ref(null)
+
+const handleSubmit = async () => {
   if (!inputText.value.trim() && !uploadedFile.value) return
-  
-  isLoading.value = true
-  // TODO: Implement fact-checking logic
-  console.log('Fact-checking text:', inputText.value)
-  if (uploadedFile.value) {
-    console.log('Fact-checking image:', uploadedFile.value.name)
+  try {
+    resetState()
+    await startFactCheck(inputText.value, uploadedFile.value)
+    notification.success({
+      message: 'Analysis Started',
+      description: 'Your fact-check analysis has begun. You\'ll see real-time progress updates.',
+      duration: 3
+    })
+    await nextTick()
+    if (analysisProgressRef.value) {
+      analysisProgressRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  } catch (err) {
+    console.error('Error starting fact-check:', err)
+    notification.error({
+      message: 'Error',
+      description: err.message || 'Failed to start fact-check analysis',
+      duration: 5
+    })
   }
-  
-  // Simulate API call
-  setTimeout(() => {
-    isLoading.value = false
-  }, 2000)
 }
+
+// Watch for errors and show notifications
+watch(error, (newError) => {
+  if (newError) {
+    notification.error({
+      message: 'Analysis Error',
+      description: newError,
+      duration: 5
+    })
+  }
+})
+
+// Watch for completed results and auto-save
+watch(results, (newResults) => {
+  if (newResults && originalClaim.value) {
+    const normalizedClaim = originalClaim.value.trim().toLowerCase()
+    const isUpdate = savedAnalyses.value.some(
+      (analysis) => analysis.originalClaim.trim().toLowerCase() === normalizedClaim
+    )
+
+    // Auto-save the analysis (this will now handle update-or-create)
+    saveAnalysis(newResults, originalClaim.value)
+    
+    if (isUpdate) {
+      notification.info({
+        message: 'Analysis Updated',
+        description: 'An existing saved analysis has been updated with the new results.',
+        duration: 3
+      })
+    } else {
+      notification.success({
+        message: 'Analysis Saved',
+        description: 'Your analysis has been automatically saved to your history.',
+        duration: 3
+      })
+    }
+  }
+})
+
+const handleCancel = () => {
+  cancelFactCheck()
+  notification.info({
+    message: 'Analysis Cancelled',
+    description: 'The fact-check analysis has been cancelled.',
+    duration: 3
+  })
+}
+
+const handleNewAnalysis = () => {
+  resetState()
+  inputText.value = ''
+  uploadedFile.value = null
+  imagePreview.value = ''
+}
+
+const handleLogoClick = () => {
+  handleNewAnalysis()
+  // Scroll to top smoothly
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const toggleMobileMenu = () => {
+    isMobileMenuOpen.value = !isMobileMenuOpen.value;
+};
+
+// Handle selecting a saved analysis
+const handleSelectSavedAnalysis = (analysis) => {
+  resetState()
+  
+  // Set the analysis data
+  results.value = analysis.results
+  originalClaim.value = analysis.originalClaim
+  
+  // Clear input
+  inputText.value = ''
+  uploadedFile.value = null
+  imagePreview.value = ''
+  
+  // Show notification
+  notification.success({
+    message: 'Analysis Loaded',
+    description: `Loaded analysis from ${new Date(analysis.timestamp).toLocaleDateString()}`,
+    duration: 3
+  })
+  
+  // Scroll to results
+  nextTick(() => {
+    const resultsElement = document.querySelector('.results-container')
+    if (resultsElement) {
+      resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
+
+const handleSelectSavedAnalysisAndCloseMenu = (analysis) => {
+    handleSelectSavedAnalysis(analysis);
+    isMobileMenuOpen.value = false;
+};
 
 const handleKeyPress = (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -140,25 +289,49 @@ const handleKeyPress = (e) => {
 </script>
 
 <template>
-  <Layout class="main-layout">
+  <Layout class="main-layout" :lang="locale === 'zh' ? 'zh-CN' : 'en'">
     <Header class="header">
       <div class="header-content">
-        <div class="logo-section">
+        <div class="logo-section" @click="handleLogoClick">
+          <img 
+            src="./assets/logo.png" 
+            alt="Logo" 
+            class="logo-image"
+            style="height: 56px; width: auto; margin-right: 8px;"
+          />
           <Title level="2" class="logo-text">
-            itLooksLegit.com
+            {{ t('app.website') }}
           </Title>
+        </div>
+        <div class="header-actions" ref="headerActionsRef">
+          <div class="header-menu-items-wrapper-desktop">
+             <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
+             <LanguageSelector />
+          </div>
+          <Button 
+            class="mobile-menu-button" 
+            @click="toggleMobileMenu" 
+            :class="{ 'is-active': isMobileMenuOpen }"
+          >
+            ☰
+          </Button>
+          <transition name="dropdown-fade">
+            <div v-if="isMobileMenuOpen" class="header-menu-items-wrapper-mobile">
+              <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
+              <LanguageSelector />
+            </div>
+          </transition>
         </div>
       </div>
     </Header>
-    
     <Content class="content">
       <div class="main-container">
         <div class="hero-section">
           <Title level="1" class="main-title">
-            It Looks Legit
+            {{ t('app.title') }}
           </Title>
           <Paragraph class="subtitle">
-            ...or is it?
+            {{ t('app.subtitle') }}
           </Paragraph>
         </div>
         
@@ -173,7 +346,7 @@ const handleKeyPress = (e) => {
             >
               <Input.TextArea
                 v-model:value="inputText"
-                placeholder="Paste your news article, social media post, or claim here to fact-check... You can also drag & drop or paste images directly here!"
+                :placeholder="t('app.inputPlaceholder')"
                 :rows="6"
                 class="main-input"
                 @keypress="handleKeyPress"
@@ -196,14 +369,12 @@ const handleKeyPress = (e) => {
                 </Button>
               </div>
               
-              <!-- Drag overlay -->
               <div v-if="isDragOver" class="drag-overlay">
                 <div class="drag-message">
                   📷 Drop your image here
                 </div>
               </div>
               
-              <!-- Image Preview -->
               <div v-if="imagePreview" class="image-preview">
                 <div class="preview-header">
                   <span class="preview-title">Uploaded Image:</span>
@@ -227,13 +398,49 @@ const handleKeyPress = (e) => {
               :disabled="!inputText.trim() && !uploadedFile"
               @click="handleSubmit"
             >
-              {{ isLoading ? 'Analyzing...' : 'Fact-Check' }}
+              {{ isLoading ? t('app.analyzing') : t('app.factCheck') }}
+            </Button>
+            
+            <Button 
+              v-if="isLoading"
+              size="large" 
+              class="cancel-button"
+              @click="handleCancel"
+            >
+              Cancel
             </Button>
           </Space>
         </div>
         
-        <div class="examples-section">
-          <Paragraph class="examples-title">Example to try:</Paragraph>
+        <div ref="analysisProgressRef">
+          <AnalysisProgress 
+            :isLoading="isLoading"
+            :progress="progress"
+            :isConnected="isConnected"
+            :usePolling="usePolling"
+          />
+        </div>
+        
+        <div v-if="results" class="results-container">
+          <FactCheckResults 
+            :results="results"
+            :originalClaim="originalClaim"
+            :uploadedImage="imagePreview"
+          />
+        </div>
+        <div v-if="results" class="new-analysis-section">
+          <Button 
+            type="default"
+            size="large"
+            class="new-analysis-button"
+            @click="handleNewAnalysis"
+          >
+            Start New Analysis
+          </Button>
+        </div>
+        
+        <div v-if="!isLoading && !results" class="examples-section">
+          <Paragraph class="examples-title">{{ t('app.exampleTitle') }}</Paragraph>
           <div class="rotating-example">
             <div 
               class="example-card rotating" 
@@ -244,13 +451,41 @@ const handleKeyPress = (e) => {
           </div>
         </div>
         
-        <div class="info-section">
+        <div v-if="!isLoading && !results" class="info-section">
           <Paragraph class="info-text">
-            Our AI analyzes claims against reliable sources and provides detailed verification reports
+            {{ t('app.infoText') }}
           </Paragraph>
         </div>
       </div>
     </Content>
+    
+    <footer class="main-footer">
+      <div class="footer-content">
+        <div class="footer-section footer-links">
+          <h4 class="footer-title">Also Try</h4>
+          <ul class="footer-list">
+            <li><a href="https://apply4college.org" class="footer-link">Apply 4 College</a></li>
+            <li><a href="https://chromewebstore.google.com/detail/mdkidaggpdhcaifbiakpdepclddngfcp?utm_source=item-share-cb" class="footer-link">Extension GPE</a></li>
+            <li><a href="#" class="footer-link">Singularity Academy</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section footer-contributors">
+          <h4 class="footer-title">Contributors</h4>
+          <ul class="footer-list">
+            <li><a href="https://www.gpeclub.com" class="footer-link">GPE Club</a></li>
+            <li><a href="https://github.com/BroWo1" class="footer-link">Will Li</a></li>
+            <li class="footer-text">Eric Jia</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p class="footer-copyright">
+          © 2025 {{ t('app.website') }}.
+        </p>
+      </div>
+    </footer>
   </Layout>
 </template>
 
@@ -260,6 +495,10 @@ const handleKeyPress = (e) => {
 .main-layout {
   min-height: 100vh;
   background: #ffffff;
+}
+
+.footer-text {
+  color: #666666;
 }
 
 .header {
@@ -279,11 +518,42 @@ const handleKeyPress = (e) => {
   height: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .logo-section {
   display: flex;
   align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px;
+  border-radius: 8px;
+  margin-left: -8px;
+}
+
+.logo-section:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.logo-section:active {
+  transform: translateY(0);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.header-menu-items-wrapper-desktop {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.mobile-menu-button {
+    display: none;
 }
 
 .logo-text {
@@ -304,6 +574,9 @@ const handleKeyPress = (e) => {
   margin: 0 auto;
   padding: 60px 24px 40px;
   text-align: center;
+}
+.results-container {
+  margin-top: 32px;
 }
 
 .hero-section {
@@ -545,6 +818,51 @@ const handleKeyPress = (e) => {
   color: #858585 !important;
 }
 
+.cancel-button {
+  border-radius: 8px !important;
+  height: 48px !important;
+  padding: 0 32px !important;
+  font-family: 'Crimson Text', serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  background: #ffffff !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+  transition: all 0.2s ease !important;
+}
+
+.cancel-button:hover {
+  background: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.new-analysis-section {
+  margin: 30px 0;
+  text-align: center;
+}
+
+.new-analysis-button {
+  border-radius: 8px !important;
+  height: 48px !important;
+  padding: 0 32px !important;
+  font-family: 'Crimson Text', serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  background: #ffffff !important;
+  border-color: #000000 !important;
+  color: #000000 !important;
+  transition: all 0.2s ease !important;
+}
+
+.new-analysis-button:hover {
+  background: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
 .info-section {
   margin-top: 30px;
 }
@@ -556,7 +874,162 @@ const handleKeyPress = (e) => {
   margin: 0 !important;
 }
 
+/* Footer Styles */
+.main-footer {
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  margin-top: 60px;
+  padding: 40px 0 20px;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 60px;
+}
+
+.footer-section {
+  flex: 1;
+}
+
+.footer-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 16px 0;
+}
+
+.footer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.footer-list li {
+  margin-bottom: 8px;
+}
+
+.footer-link {
+  font-family: 'Crimson Text', serif;
+  font-size: 14px;
+  color: #666666;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-link:hover {
+  color: #000000;
+  text-decoration: none;
+}
+
+.footer-bottom {
+  border-top: 1px solid #e9ecef;
+  margin-top: 32px;
+  padding: 16px 0 0;
+  text-align: center;
+}
+
+.footer-copyright {
+  font-family: 'Crimson Text', serif;
+  font-size: 12px;
+  color: #999999;
+  margin: 0;
+}
+
+.footer-links {
+  text-align: left;
+}
+
+.footer-contributors {
+  text-align: right;
+}
+
+/* Dropdown Animation */
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 @media (max-width: 768px) {
+  .header {
+    height: 70px;
+  }
+  
+  .header-content {
+    padding: 0 16px;
+    gap: 8px;
+  }
+  
+  .logo-section {
+    margin-left: -4px;
+    padding: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  
+  .logo-image {
+    height: 40px !important;
+    margin-right: 6px !important;
+  }
+  
+  .logo-text {
+    font-size: 20px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .header-actions {
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  .header-menu-items-wrapper-desktop {
+    display: none;
+  }
+  
+  .mobile-menu-button {
+    display: block;
+    background: transparent !important;
+    border: none !important;
+    color: #000 !important;
+    font-size: 24px !important;
+    padding: 0 8px !important;
+    line-height: 1 !important;
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  .mobile-menu-button.is-active {
+    transform: rotate(90deg);
+  }
+
+  .header-menu-items-wrapper-mobile {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    border: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    z-index: 120;
+    width: 220px;
+  }
+  
   .main-title {
     font-size: 36px !important;
   }
@@ -567,10 +1040,6 @@ const handleKeyPress = (e) => {
   
   .main-container {
     padding: 40px 16px;
-  }
-  
-  .logo-text {
-    font-size: 24px !important;
   }
   
   .examples-title {
@@ -606,6 +1075,57 @@ const handleKeyPress = (e) => {
   
   .input-wrapper.drag-over {
     transform: scale(1.01);
+  }
+  
+  .footer-content {
+    flex-direction: column;
+    gap: 30px;
+    padding: 0 16px;
+  }
+  
+  .footer-links,
+  .footer-contributors {
+    text-align: center;
+  }
+  
+  .main-footer {
+    margin-top: 40px;
+    padding: 30px 0 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    height: 60px;
+  }
+  
+  .header-content {
+    padding: 0 12px;
+  }
+  
+  .logo-image {
+    height: 32px !important;
+    margin-right: 4px !important;
+  }
+  
+  .logo-text {
+    font-size: 16px !important;
+  }
+  
+  .header-actions {
+    gap: 4px;
+  }
+  
+  .main-container {
+    padding: 30px 12px;
+  }
+  
+  .main-title {
+    font-size: 28px !important;
+  }
+  
+  .subtitle {
+    font-size: 16px !important;
   }
 }
 </style>

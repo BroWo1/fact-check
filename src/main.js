@@ -3,6 +3,7 @@ import Antd from 'ant-design-vue';
 import { ConfigProvider } from 'ant-design-vue';
 import App from './App.vue';
 import { themeConfig } from './theme.js';
+import i18n from './i18n/index.js';
 import 'ant-design-vue/dist/reset.css';
 
 const app = createApp({
@@ -13,4 +14,4 @@ const app = createApp({
   }
 });
 
-app.use(Antd).mount('#app');
+app.use(Antd).use(i18n).mount('#app');

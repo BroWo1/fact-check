@@ -1,0 +1,54 @@
+{
+  "app": {
+    "website": "itLooksLegit.com",
+    "title": "It Looks Legit",
+    "subtitle": "...or is it?",
+    "inputPlaceholder": "Paste your news article, social media post, or claim here to fact-check... You can also drag & drop or paste images directly here!",
+    "analyzing": "Analyzing...",
+    "factCheck": "Fact-Check",
+    "exampleTitle": "Example to try:",
+    "infoText": "Our AI analyzes claims against reliable sources and provides detailed verification reports"
+  },
+  "results": {
+    "claimAnalyzed": "Claim Analyzed",
+    "analysis": "Analysis",
+    "citations": "Citations",
+    "evidence": "Evidence",
+    "keyFindings": "Key Findings",
+    "supportingEvidence": "Supporting Evidence",
+    "contradictoryEvidence": "Contradictory Evidence",
+    "confidence": "Confidence",
+    "analysisCompleted": "Analysis completed",
+    "downloadImage": "📥 Download Image",
+    "copyToClipboard": "📋 Copy to Clipboard",
+    "shareResults": "Share Results",
+    "copyImageFailed": "Failed to copy to clipboard. Your browser may not support this feature.",
+    "copyImageSuccess": "Image copied to clipboard!"
+  },
+  "verdict": {
+    "true": "True",
+    "likely_true": "Likely True",
+    "likely": "Likely True",
+    "uncertain": "Uncertain",
+    "likely_false": "Likely False",
+    "suspicious": "Suspicious",
+    "false": "False",
+    "unknown": "Unknown"
+  },
+  "languageSelector": {
+    "label": "Language",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "savedAnalyses": {
+    "title": "Saved Analyses",
+    "recentAnalyses": "Recent Analyses",
+    "noAnalyses": "No saved analyses yet",
+    "clearAll": "Clear All",
+    "confirmClearAll": "Are you sure you want to delete all saved analyses? This action cannot be undone.",
+    "showMore": "Show More",
+    "more": "more",
+    "analysisDeleted": "Analysis deleted",
+    "allAnalysesCleared": "All analyses cleared"
+  }
+}

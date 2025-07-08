@@ -1,7 +1,7 @@
 // Ant Design theme configuration
 export const themeConfig = {
   token: {
-    colorPrimary: '#000000',
+    colorPrimary: '#696969',
     colorSuccess: '#000000',
     colorWarning: '#666666',
     colorError: '#ff4d4f',

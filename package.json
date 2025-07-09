@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --fix",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name=fact-check"
+    "lint": "eslint . --fix"
   },
   "dependencies": {
     "ant-design-vue": "^4.2.6",

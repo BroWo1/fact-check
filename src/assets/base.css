@@ -102,37 +102,6 @@ body {
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'LXGW';
-  src: url('/fonts/LXGWWenKai-Light.ttf') format('truetype');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'LXGW Mono';
-  src: url('/fonts/LXGWWenKaiMono-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'LXGW Mono';
-  src: url('/fonts/LXGWWenKaiMono-Medium.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'LXGW Mono';
-  src: url('/fonts/LXGWWenKaiMono-Light.ttf') format('truetype');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
 
 /* Apply LXGW font to Chinese text specifically */
 .chinese-text,

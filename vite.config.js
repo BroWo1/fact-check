@@ -8,25 +8,12 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig({
   plugins: [
     vue(),
-    // Only include devtools in development
-    ...(process.env.NODE_ENV === 'development' ? [vueDevTools()] : []),
+    vueDevTools(),
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['vue', 'vue-i18n'],
-          antd: ['ant-design-vue'],
-          utils: ['axios', 'uuid', 'html2canvas']
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1000
   },
   server: {
     proxy: {

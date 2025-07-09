@@ -1,7 +1,9 @@
 {
   "name": "fact-check",
   "compatibility_date": "2025-07-09",
+  "main": "src/worker.js",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS"
   }
 }

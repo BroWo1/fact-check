@@ -2,6 +2,37 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
+    // Handle API requests by proxying to backend
+    if (url.pathname.startsWith('/api')) {
+      const backendUrl = new URL(url.pathname.replace('/api', ''), 'https://server.itlookslegit.com');
+      backendUrl.search = url.search;
+      
+      const backendRequest = new Request(backendUrl, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body
+      });
+      
+      try {
+        const response = await fetch(backendRequest);
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: {
+            ...response.headers,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+          }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ error: 'Backend service unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    
     // Handle SPA routing - serve index.html for non-asset requests
     if (!url.pathname.includes('.') && !url.pathname.startsWith('/api')) {
       try {

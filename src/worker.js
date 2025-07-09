@@ -2,10 +2,31 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400'
+        }
+      });
+    }
+    
     // Handle API requests by proxying to backend
     if (url.pathname.startsWith('/api')) {
-      const backendUrl = new URL(url.pathname.replace('/api', ''), 'https://server.itlookslegit.com');
+      // Remove /api prefix and construct backend URL
+      const backendPath = url.pathname.replace('/api', '') || '/';
+      const backendUrl = new URL(backendPath, 'https://server.itlookslegit.com');
       backendUrl.search = url.search;
+      
+      console.log('Proxying API request:', {
+        original: url.pathname,
+        backend: backendUrl.toString(),
+        method: request.method
+      });
       
       const backendRequest = new Request(backendUrl, {
         method: request.method,
@@ -15,20 +36,30 @@ export default {
       
       try {
         const response = await fetch(backendRequest);
+        const responseHeaders = new Headers(response.headers);
+        
+        // Add CORS headers
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
+        console.log('Backend response:', response.status, response.statusText);
+        
         return new Response(response.body, {
           status: response.status,
           statusText: response.statusText,
-          headers: {
-            ...response.headers,
+          headers: responseHeaders
+        });
+      } catch (error) {
+        console.error('Backend request failed:', error);
+        return new Response(JSON.stringify({ error: 'Backend service unavailable', details: error.message }), {
+          status: 503,
+          headers: { 
+            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
           }
-        });
-      } catch (error) {
-        return new Response(JSON.stringify({ error: 'Backend service unavailable' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
         });
       }
     }

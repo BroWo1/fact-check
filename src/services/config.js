@@ -1,6 +1,5 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.DEV ? '/api' : 'https://server.itlookslegit.com/api')
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // For WebSocket, bypass proxy in development and connect directly to backend
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 

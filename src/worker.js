@@ -17,9 +17,8 @@ export default {
     
     // Handle API requests by proxying to backend
     if (url.pathname.startsWith('/api')) {
-      // Remove /api prefix and construct backend URL
-      const backendPath = url.pathname.replace('/api', '') || '/';
-      const backendUrl = new URL(backendPath, 'https://server.itlookslegit.com');
+      // Keep the /api prefix when forwarding to backend
+      const backendUrl = new URL(url.pathname, 'https://server.itlookslegit.com');
       backendUrl.search = url.search;
       
       console.log('Proxying API request:', {

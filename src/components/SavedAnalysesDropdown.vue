@@ -213,6 +213,8 @@ onUnmounted(() => {
 }
 
 .dropdown-header {
+  position: sticky;
+  top: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -220,6 +222,7 @@ onUnmounted(() => {
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fa;
   max-height: 72px;
+  z-index: 1001;
 }
 
 .dropdown-header h3 {

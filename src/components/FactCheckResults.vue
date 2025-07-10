@@ -206,7 +206,7 @@
     </transition>
 
     <!-- Debug Section (only shown in development) -->
-    <div class="debug-section" v-if="showDebug && citationDebugInfo">
+    <div class="debug-section" v-if="showDebug && citationDebugInfo && isDevelopment">
       <h3 class="section-title">Citation Debug Information</h3>
       <div class="debug-info">
         <div class="debug-item">
@@ -236,7 +236,7 @@
     </div>
 
     <!-- Debug Toggle Button -->
-    <div class="debug-toggle-container" v-if="!showDebug">
+    <div class="debug-toggle-container" v-if="!showDebug && isDevelopment">
       <button @click="showDebug = true" class="debug-toggle small">Show Debug Info</button>
     </div>
   </div>
@@ -259,6 +259,22 @@ const showPreview = ref(false)
 const previewCanvas = ref(null)
 const showDebug = ref(false)
 let currentImageBlob = null
+
+// Development environment check
+const isDevelopment = ref(import.meta.env.DEV)
+
+// Development-only logging helper
+const devLog = (message, ...args) => {
+  if (isDevelopment.value) {
+    console.log(message, ...args)
+  }
+}
+
+const devWarn = (message, ...args) => {
+  if (isDevelopment.value) {
+    console.warn(message, ...args)
+  }
+}
 
 const getVerdictIcon = (verdict) => {
   const icons = {
@@ -607,22 +623,79 @@ const createShareImage = async () => {
   try {
     const logoImg = new Image()
     logoImg.crossOrigin = 'anonymous'
-    await new Promise((resolve, reject) => {
-      logoImg.onload = resolve
-      logoImg.onerror = reject
-      logoImg.src = '/src/assets/logo.png'
-    })
     
-    // Draw logo (centered, reasonable size)
-    const logoSize = 80
-    const logoX = (canvas.width - logoSize) / 2
-    ctx.drawImage(logoImg, logoX, currentY, logoSize, logoSize)
-    currentY += logoSize + 20
+    // Multiple logo path strategies for production compatibility
+    const logoSources = [
+      '/logo.png',  // Public folder (production) - highest priority
+      '/assets/logo.png',  // Public assets folder fallback
+      window.location.origin + '/logo.png',  // Absolute URL
+      window.location.origin + '/assets/logo.png',  // Absolute URL with assets
+      '/src/assets/logo.png'  // Source assets (dev only)
+    ]
+    
+    let logoLoaded = false
+    
+    for (const logoSrc of logoSources) {
+      if (logoLoaded) break
+      
+      try {
+        await new Promise((resolve, reject) => {
+          // Set a timeout for image loading
+          const timeout = setTimeout(() => {
+            reject(new Error('Logo loading timeout'))
+          }, 5000)
+          
+          logoImg.onload = () => {
+            clearTimeout(timeout)
+            logoLoaded = true
+            devLog(`Logo loaded successfully from: ${logoSrc}`)
+            resolve()
+          }
+          logoImg.onerror = (error) => {
+            clearTimeout(timeout)
+            reject(error)
+          }
+          logoImg.src = logoSrc
+        })
+        
+        if (logoLoaded) {
+          // Draw logo (centered, reasonable size)
+          const logoSize = 80
+          const logoX = (canvas.width - logoSize) / 2
+          ctx.drawImage(logoImg, logoX, currentY, logoSize, logoSize)
+          currentY += logoSize + 20
+          break
+        }
+      } catch (error) {
+        devWarn(`Failed to load logo from ${logoSrc}:`, error)
+        continue
+      }
+    }
+    
+    // If no logo loaded, draw fallback
+    if (!logoLoaded) {
+      throw new Error('All logo sources failed')
+    }
+    
   } catch (error) {
-    console.warn('Could not load logo:', error)
-    // Fallback: draw a simple logo placeholder
+    devWarn('Could not load logo, using fallback:', error)
+    // Fallback: draw a branded text logo with better styling
     ctx.fillStyle = '#000000'
-    ctx.fillRect((canvas.width - 80) / 2, currentY, 80, 80)
+    ctx.font = 'bold 36px serif'
+    ctx.textAlign = 'center'
+    
+    // Draw a simple logo background circle
+    ctx.beginPath()
+    ctx.arc(canvas.width / 2, currentY + 40, 40, 0, 2 * Math.PI)
+    ctx.fillStyle = '#f0f0f0'
+    ctx.fill()
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    
+    // Draw the emoji/icon
+    ctx.fillStyle = '#000000'
+    ctx.fillText('📊', canvas.width / 2, currentY + 50)
     currentY += 100
   }
   
@@ -671,11 +744,77 @@ const createShareImage = async () => {
     try {
       const uploadedImg = new Image()
       uploadedImg.crossOrigin = 'anonymous'
-      await new Promise((resolve, reject) => {
-        uploadedImg.onload = resolve
-        uploadedImg.onerror = reject
-        uploadedImg.src = props.uploadedImage
-      })
+      
+      // Handle different image source formats
+      let imageSrc = props.uploadedImage
+      
+      // If it's a data URL, use it directly
+      if (imageSrc.startsWith('data:')) {
+        uploadedImg.src = imageSrc
+      } else if (imageSrc.startsWith('blob:')) {
+        // For blob URLs, use directly
+        uploadedImg.src = imageSrc
+      } else {
+        // For regular URLs, try multiple strategies
+        const imageSources = [
+          imageSrc,
+          window.location.origin + imageSrc,
+          imageSrc.startsWith('/') ? imageSrc : '/' + imageSrc
+        ]
+        
+        let imageLoaded = false
+        
+        for (const imgSrc of imageSources) {
+          if (imageLoaded) break
+          
+          try {
+            await new Promise((resolve, reject) => {
+              // Set a timeout for image loading
+              const timeout = setTimeout(() => {
+                reject(new Error('Image loading timeout'))
+              }, 5000)
+              
+              uploadedImg.onload = () => {
+                clearTimeout(timeout)
+                imageLoaded = true
+                devLog(`Uploaded image loaded successfully from: ${imgSrc}`)
+                resolve()
+              }
+              uploadedImg.onerror = (error) => {
+                clearTimeout(timeout)
+                reject(error)
+              }
+              uploadedImg.src = imgSrc
+            })
+            break
+          } catch (error) {
+            devWarn(`Failed to load image from ${imgSrc}:`, error)
+            continue
+          }
+        }
+        
+        if (!imageLoaded) {
+          throw new Error('All image sources failed')
+        }
+      }
+      
+      // Wait for image to load if not already loaded
+      if (!uploadedImg.complete) {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Image loading timeout'))
+          }, 5000)
+          
+          uploadedImg.onload = () => {
+            clearTimeout(timeout)
+            resolve()
+          }
+          uploadedImg.onerror = (error) => {
+            clearTimeout(timeout)
+            reject(error)
+          }
+        })
+      }
       
       // Calculate thumbnail size (maintain aspect ratio)
       const maxThumbnailWidth = 300
@@ -712,7 +851,13 @@ const createShareImage = async () => {
       currentY += thumbnailHeight + 50
       
     } catch (error) {
-      console.warn('Could not load uploaded image:', error)
+      devWarn('Could not load uploaded image:', error)
+      // Fallback: show placeholder
+      ctx.font = tinyFont
+      ctx.fillStyle = '#666666'
+      ctx.textAlign = 'center'
+      ctx.fillText('Uploaded Image: [Could not load]', canvas.width / 2, currentY)
+      currentY += 50
     }
   }
   

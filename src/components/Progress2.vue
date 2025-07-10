@@ -2,7 +2,12 @@
   <div class="progress-container" v-if="isLoading || progress.percentage > 0">
     <div class="progress-header">
       <h3 class="progress-title">Analyzing Your Claim</h3>
-      <div class="progress-percentage">{{ Math.round(progress.percentage) }}%</div>
+      <div class="progress-info">
+        <div class="progress-percentage">{{ Math.round(progress.percentage) }}%</div>
+        <div class="analysis-timer" v-if="analysisStartTime">
+          {{ formatElapsedTime(elapsedTime) }}
+        </div>
+      </div>
     </div>
     
     <div class="progress-bar-container">
@@ -99,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   isLoading: Boolean,
@@ -110,6 +115,11 @@ const props = defineProps({
 
 const showDetails = ref(false)
 const isMobile = ref(false)
+
+// Timer related variables
+const analysisStartTime = ref(null)
+const elapsedTime = ref(0)
+const timerInterval = ref(null)
 
 // Step icons and names mapping
 const stepIcons = {
@@ -142,7 +152,52 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+  }
 })
+
+// Watch for analysis start/stop
+watch(() => props.isLoading, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // Analysis started
+    startTimer()
+  } else if (!newVal && oldVal) {
+    // Analysis stopped
+    stopTimer()
+  }
+}, { immediate: true })
+
+// Timer functions
+const startTimer = () => {
+  analysisStartTime.value = Date.now()
+  elapsedTime.value = 0
+  
+  timerInterval.value = setInterval(() => {
+    if (analysisStartTime.value) {
+      elapsedTime.value = Date.now() - analysisStartTime.value
+    }
+  }, 1000)
+}
+
+const stopTimer = () => {
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+    timerInterval.value = null
+  }
+}
+
+const formatElapsedTime = (ms) => {
+  const seconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  
+  if (minutes > 0) {
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  } else {
+    return `${remainingSeconds}s`
+  }
+}
 
 // Get main steps for horizontal display
 const getMainSteps = () => {
@@ -271,10 +326,24 @@ const formatTimestamp = (timestamp) => {
   margin: 0;
 }
 
+.progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .progress-percentage {
   font-size: 18px;
   font-weight: 600;
   color: #000000;
+}
+
+.analysis-timer {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666666;
+  font-family: 'Crimson Text', serif;
 }
 
 .progress-bar-container {
@@ -456,6 +525,14 @@ const formatTimestamp = (timestamp) => {
   
   .progress-percentage {
     font-size: 16px;
+  }
+  
+  .analysis-timer {
+    font-size: 12px;
+  }
+  
+  .progress-info {
+    align-items: flex-end;
   }
   
   :deep(.ant-steps-item-title) {

@@ -254,8 +254,8 @@ const handleSelectSavedAnalysis = (analysis) => {
   results.value = analysis.results
   originalClaim.value = analysis.originalClaim
   
-  // Clear input
-  inputText.value = ''
+  // Fill the input box with the original claim
+  inputText.value = analysis.originalClaim
   uploadedFile.value = null
   imagePreview.value = ''
   

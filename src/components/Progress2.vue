@@ -1,7 +1,7 @@
 <template>
   <div class="progress-container" v-if="isLoading || progress.percentage > 0">
     <div class="progress-header">
-      <h3 class="progress-title">Analyzing Your Claim</h3>
+      <h3 class="progress-title">{{ getProgressTitle() }}</h3>
       <div class="progress-info">
         <div class="progress-percentage">{{ Math.round(progress.percentage) }}%</div>
         <div class="analysis-timer" v-if="analysisStartTime">
@@ -22,13 +22,13 @@
     <!-- Main Steps Display -->
     <div class="steps-container">
       <a-steps 
-        :current="getCurrentStepIndex()" 
-        :status="getStepsStatus()"
+        :current="getCurrentStepIndex" 
+        :status="getStepsStatus"
         size="small"
         :direction="isMobile ? 'vertical' : 'horizontal'"
       >
         <a-step 
-          v-for="(step, index) in getMainSteps()" 
+          v-for="(step, index) in getMainSteps" 
           :key="step.key"
           :title="step.title"
           :description="step.description"
@@ -65,8 +65,8 @@
           ({{ progress.completedSteps }} completed)
         </span>
       </div>
-      <div class="analysis-phase" v-if="getCurrentPhase()">
-        <strong>{{ getCurrentPhase() }}</strong>
+      <div class="analysis-phase" v-if="getCurrentPhase">
+        <strong>{{ getCurrentPhase }}</strong>
       </div>
     </div>
     
@@ -82,10 +82,10 @@
     <!-- Detailed Steps Display -->
     <div class="steps-detail" v-if="showDetails && progress.steps.length > 0">
       <a-steps 
-        :current="getCurrentDetailStepIndex()" 
+        :current="getCurrentDetailStepIndex" 
         direction="vertical"
         size="small"
-        :status="getDetailStepsStatus()"
+        :status="getDetailStepsStatus"
       >
         <a-step 
           v-for="(step, index) in progress.steps" 
@@ -110,7 +110,11 @@ const props = defineProps({
   isLoading: Boolean,
   progress: Object,
   isConnected: Boolean,
-  usePolling: Boolean
+  usePolling: Boolean,
+  mode: {
+    type: String,
+    default: 'fact_check'
+  }
 })
 
 const showDetails = ref(false)
@@ -123,21 +127,37 @@ const timerInterval = ref(null)
 
 // Step icons and names mapping
 const stepIcons = {
+  // Fact-check steps
   'initial_web_search': '🔍',
   'deeper_exploration': '🔬',
   'source_credibility_evaluation': '⚖️',
   'final_conclusion': '📋',
   'submitting': '📤',
-  'analyzing': '🧠'
+  'analyzing': '🧠',
+  
+  // Research steps
+  'topic_analysis': '📊',
+  'research_gathering': '📚',
+  'source_analysis': '🔍',
+  'synthesis': '🧩',
+  'report_generation': '📄'
 }
 
 const stepNames = {
+  // Fact-check steps
   'initial_web_search': 'Initial Search',
   'deeper_exploration': 'Deeper Exploration',
   'source_credibility_evaluation': 'Source Evaluation',
   'final_conclusion': 'Final Conclusion',
   'submitting': 'Submitting Request',
-  'analyzing': 'Analyzing Content'
+  'analyzing': 'Analyzing Content',
+  
+  // Research steps
+  'topic_analysis': 'Topic Analysis',
+  'research_gathering': 'Research Gathering',
+  'source_analysis': 'Source Analysis',
+  'synthesis': 'Information Synthesis',
+  'report_generation': 'Report Generation'
 }
 
 // Check if mobile for responsive steps
@@ -199,9 +219,16 @@ const formatElapsedTime = (ms) => {
   }
 }
 
+// Get progress title based on mode
+const getProgressTitle = () => {
+  return props.mode === 'research' ? 'Researching Your Topic' : 'Analyzing Your Claim'
+}
+
 // Get main steps for horizontal display
-const getMainSteps = () => {
-  const mainStepTypes = ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
+const getMainSteps = computed(() => {
+  const mainStepTypes = props.mode === 'research' 
+    ? ['topic_analysis', 'research_gathering', 'source_analysis', 'report_generation']
+    : ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
   
   return mainStepTypes.map(stepType => {
     const step = props.progress.steps?.find(s => s.step_type === stepType)
@@ -213,12 +240,15 @@ const getMainSteps = () => {
       status: step ? mapStepStatus(step.status) : 'wait'
     }
   })
-}
+})
 
-const getCurrentStepIndex = () => {
+const getCurrentStepIndex = computed(() => {
   if (!props.progress.steps || props.progress.steps.length === 0) return 0
   
-  const mainStepTypes = ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
+  const mainStepTypes = props.mode === 'research' 
+    ? ['topic_analysis', 'research_gathering', 'source_analysis', 'report_generation']
+    : ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
+  
   const currentStep = props.progress.steps.find(step => step.status === 'in_progress')
   
   if (currentStep) {
@@ -236,24 +266,24 @@ const getCurrentStepIndex = () => {
   }
   
   return 0
-}
+})
 
-const getStepsStatus = () => {
+const getStepsStatus = computed(() => {
   const hasError = props.progress.steps?.some(step => step.status === 'failed')
   return hasError ? 'error' : 'process'
-}
+})
 
-const getCurrentDetailStepIndex = () => {
+const getCurrentDetailStepIndex = computed(() => {
   if (!props.progress.steps || props.progress.steps.length === 0) return 0
   
   const currentStepIndex = props.progress.steps.findIndex(step => step.status === 'in_progress')
   return currentStepIndex >= 0 ? currentStepIndex : props.progress.steps.length
-}
+})
 
-const getDetailStepsStatus = () => {
+const getDetailStepsStatus = computed(() => {
   const hasError = props.progress.steps?.some(step => step.status === 'failed')
   return hasError ? 'error' : 'process'
-}
+})
 
 const mapStepStatus = (status) => {
   switch (status) {
@@ -264,7 +294,7 @@ const mapStepStatus = (status) => {
   }
 }
 
-const getCurrentPhase = () => {
+const getCurrentPhase = computed(() => {
   if (!props.progress.steps || props.progress.steps.length === 0) return null
   
   const currentStep = props.progress.steps.find(step => step.status === 'in_progress')
@@ -273,7 +303,7 @@ const getCurrentPhase = () => {
   }
   
   return null
-}
+})
 
 const getStepIcon = (stepType) => {
   return stepIcons[stepType] || '⏳'

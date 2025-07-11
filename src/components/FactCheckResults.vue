@@ -1138,7 +1138,7 @@ const cleanDuplicateCitations = (citations) => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   padding: 2px 8px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   font-size: 11px;
   font-weight: 500;
   color: #595959;
@@ -1171,13 +1171,17 @@ const cleanDuplicateCitations = (citations) => {
   outline: 1px solid #000000;
   outline-offset: 1px;
 }
+
+p, li{
+  text-align: justify;
+}
 .results-container {
   background: #ffffff;
   border-radius: 12px;
   padding: 24px;
   margin: 20px 0;
   border: 1px solid #e9ecef;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   scroll-behavior: smooth;
 }
 
@@ -1197,7 +1201,7 @@ const cleanDuplicateCitations = (citations) => {
   border-radius: 8px;
   border-left: 4px solid #1890ff;
   font-style: italic;
-  font-family: 'MyChineseFont', 'Crimson Text', serif;
+  font-family: 'MyChineseFont', 'DM Sans', serif;
 }
 
 /* Verdict Section */
@@ -1263,6 +1267,7 @@ const cleanDuplicateCitations = (citations) => {
   font-size: 16px;
   line-height: 1.6;
   color: #333333;
+  text-align: justify;
 }
 
 .reasoning-text .parenthetical-citation {
@@ -1431,7 +1436,7 @@ const cleanDuplicateCitations = (citations) => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   padding: 2px 8px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   font-size: 11px;
   font-weight: 500;
   color: #595959;
@@ -1715,7 +1720,7 @@ const cleanDuplicateCitations = (citations) => {
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1757,7 +1762,7 @@ const cleanDuplicateCitations = (citations) => {
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1849,7 +1854,7 @@ const cleanDuplicateCitations = (citations) => {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  font-family: 'MyChineseFont', 'Crimson Text', serif;
+  font-family: 'MyChineseFont', 'DM Sans', serif;
 }
 
 .preview-actions {
@@ -1864,7 +1869,7 @@ const cleanDuplicateCitations = (citations) => {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'DM Sans', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1944,7 +1949,7 @@ const cleanDuplicateCitations = (citations) => {
 
 /* Also apply to modal preview if needed */
 .preview-canvas {
-  font-family: 'MyChineseFont', 'Crimson Text', serif;
+  font-family: 'MyChineseFont', 'DM Sans', serif;
 }
 
 /* Debug Section */

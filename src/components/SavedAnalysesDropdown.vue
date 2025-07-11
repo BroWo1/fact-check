@@ -37,9 +37,15 @@
           >
             <div class="analysis-header">
               <div class="verdict-info">
-                <span class="verdict-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
-                <span class="verdict-text" :style="{ color: getVerdictColor(analysis.verdict) }">
+                <span class="mode-badge" :class="analysis.mode || 'fact_check'">
+                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : '📚' }}
+                </span>
+                <span v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict" class="verdict-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
+                <span v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict" class="verdict-text" :style="{ color: getVerdictColor(analysis.verdict) }">
                   {{ t(`verdict.${analysis.verdict}`) || analysis.verdict }}
+                </span>
+                <span v-if="(analysis.mode || 'fact_check') === 'research'" class="research-indicator">
+                  {{ t('mode.research') }}
                 </span>
               </div>
               <div class="analysis-date">
@@ -52,8 +58,11 @@
             </div>
             
             <div class="analysis-footer">
-              <div class="confidence-info">
+              <div class="confidence-info" v-if="(analysis.mode || 'fact_check') === 'fact_check'">
                 {{ t('results.confidence') }}: {{ formatAnalysisForDisplay(analysis).confidencePercent }}%
+              </div>
+              <div class="mode-info" v-else>
+                {{ t('research.title') }}
               </div>
               <Button 
                 class="delete-btn"
@@ -284,6 +293,33 @@ max-height: 40px;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.mode-badge {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.mode-badge.fact_check {
+  color: #1890ff;
+}
+
+.mode-badge.research {
+  color: #52c41a;
+}
+
+.research-indicator {
+  font-family: 'Crimson Text', serif;
+  font-size: 12px;
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.mode-info {
+  font-family: 'Crimson Text', serif;
+  font-size: 12px;
+  color: #52c41a;
+  font-weight: 600;
 }
 
 .verdict-icon {

@@ -2,10 +2,14 @@
   "app": {
     "website": "itLooksLegit.com",
     "title": "It Looks Legit",
+    "researchTitle": "Shallow Research",
     "subtitle": "...or is it?",
+    "researchSubtitle": "Perform research on topics and questions",
     "inputPlaceholder": "Paste your news article, social media post, or claim here to fact-check... You can also drag & drop or paste images directly here!",
+    "researchPlaceholder": "Enter your research question or topic here... e.g., 'What are the benefits of renewable energy?' or 'How does AI impact healthcare?'",
     "analyzing": "Analyzing...",
     "factCheck": "Fact-Check",
+    "research": "Research",
     "exampleTitle": "Example to try:",
     "infoText": "Our AI analyzes claims against reliable sources and provides detailed verification reports"
   },
@@ -50,5 +54,19 @@
     "more": "more",
     "analysisDeleted": "Analysis deleted",
     "allAnalysesCleared": "All analyses cleared"
+  },
+  "mode": {
+    "factCheck": "Fact Check",
+    "research": "Research",
+    "factCheckDescription": "Verify the accuracy of specific claims with evidence-based analysis",
+    "researchDescription": "Get comprehensive research reports on topics and questions"
+  },
+  "research": {
+    "title": "Research Report",
+    "mode": "Research Mode",
+    "sources": "Sources",
+    "limitations": "Limitations",
+    "recommendations": "Recommendations",
+    "relevance": "Relevance"
   }
 }

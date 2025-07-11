@@ -6,8 +6,10 @@ import { useFactCheck } from './composables/useFactCheck'
 import { useSavedAnalyses } from './composables/useSavedAnalyses'
 import AnalysisProgress from './components/Progress2.vue'
 import FactCheckResults from './components/FactCheckResults.vue'
+import ResearchResults from './components/ResearchResults.vue'
 import LanguageSelector from './components/LanguageSelector.vue'
 import SavedAnalysesDropdown from './components/SavedAnalysesDropdown.vue'
+import ModeSelector from './components/ModeSelector.vue'
 
 const { Title, Paragraph } = Typography
 const { Header, Content } = Layout
@@ -26,6 +28,12 @@ const imagePreview = ref('')
 const isDragOver = ref(false)
 const isMobileMenuOpen = ref(false)
 const headerActionsRef = ref(null)
+const selectedMode = ref('fact_check')
+
+// Watch for mode changes to update document title
+watch(selectedMode, (newMode) => {
+  document.title = newMode === 'fact_check' ? t('app.title') : t('app.researchTitle')
+}, { immediate: true })
 
 // Fact-check integration
 const { 
@@ -37,6 +45,7 @@ const {
   progress, 
   isConnected,
   usePolling,
+  currentMode,
   startFactCheck,
   cancelFactCheck,
   resetState
@@ -53,13 +62,29 @@ const examples = ref([
   "News headline: Artificial intelligence will replace 50% of jobs by 2030"
 ])
 
+const researchExamples = ref([
+  "What are the latest developments in renewable energy technology?",
+  "How does artificial intelligence impact modern healthcare?",
+  "What are the economic effects of remote work on cities?",
+  "How do electric vehicles compare to traditional cars in terms of environmental impact?",
+  "What are the health benefits and risks of the Mediterranean diet?"
+])
+
 const currentExample = ref(examples.value[0])
 let rotationInterval = null
 
 const rotateExample = () => {
-  currentExampleIndex.value = (currentExampleIndex.value + 1) % examples.value.length
-  currentExample.value = examples.value[currentExampleIndex.value]
+  const activeExamples = selectedMode.value === 'fact_check' ? examples.value : researchExamples.value
+  currentExampleIndex.value = (currentExampleIndex.value + 1) % activeExamples.length
+  currentExample.value = activeExamples[currentExampleIndex.value]
 }
+
+// Watch for mode changes to reset examples
+watch(selectedMode, (newMode) => {
+  const activeExamples = newMode === 'fact_check' ? examples.value : researchExamples.value
+  currentExampleIndex.value = 0
+  currentExample.value = activeExamples[0]
+})
 
 const handleClickOutside = (event) => {
   if (isMobileMenuOpen.value && headerActionsRef.value && !headerActionsRef.value.contains(event.target)) {
@@ -162,10 +187,12 @@ const handleSubmit = async () => {
   if (!inputText.value.trim() && !uploadedFile.value) return
   try {
     resetState()
-    await startFactCheck(inputText.value, uploadedFile.value)
+    await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value)
     notification.success({
-      message: 'Analysis Started',
-      description: 'Your fact-check analysis has begun. You\'ll see real-time progress updates.',
+      message: selectedMode.value === 'fact_check' ? 'Analysis Started' : 'Research Started',
+      description: selectedMode.value === 'fact_check' 
+        ? 'Your fact-check analysis has begun. You\'ll see real-time progress updates.'
+        : 'Your research has begun. You\'ll see real-time progress updates.',
       duration: 3
     })
     await nextTick()
@@ -202,7 +229,7 @@ watch(results, (newResults) => {
     )
 
     // Auto-save the analysis (this will now handle update-or-create)
-    saveAnalysis(newResults, originalClaim.value)
+    saveAnalysis(newResults, originalClaim.value, selectedMode.value)
     
     if (isUpdate) {
       notification.info({
@@ -212,8 +239,10 @@ watch(results, (newResults) => {
       })
     } else {
       notification.success({
-        message: 'Analysis Saved',
-        description: 'Your analysis has been automatically saved to your history.',
+        message: selectedMode.value === 'fact_check' ? 'Analysis Saved' : 'Research Saved',
+        description: selectedMode.value === 'fact_check' 
+          ? 'Your analysis has been automatically saved to your history.'
+          : 'Your research has been automatically saved to your history.',
         duration: 3
       })
     }
@@ -223,8 +252,10 @@ watch(results, (newResults) => {
 const handleCancel = () => {
   cancelFactCheck()
   notification.info({
-    message: 'Analysis Cancelled',
-    description: 'The fact-check analysis has been cancelled.',
+    message: selectedMode.value === 'fact_check' ? 'Analysis Cancelled' : 'Research Cancelled',
+    description: selectedMode.value === 'fact_check' 
+      ? 'The fact-check analysis has been cancelled.'
+      : 'The research has been cancelled.',
     duration: 3
   })
 }
@@ -234,6 +265,7 @@ const handleNewAnalysis = () => {
   inputText.value = ''
   uploadedFile.value = null
   imagePreview.value = ''
+  // Keep the same mode, don't reset it
 }
 
 const handleLogoClick = () => {
@@ -253,6 +285,9 @@ const handleSelectSavedAnalysis = (analysis) => {
   // Set the analysis data
   results.value = analysis.results
   originalClaim.value = analysis.originalClaim
+  
+  // Set the mode based on the saved analysis
+  selectedMode.value = analysis.mode || 'fact_check'
   
   // Fill the input box with the original claim
   inputText.value = analysis.originalClaim
@@ -328,12 +363,14 @@ const handleKeyPress = (e) => {
       <div class="main-container">
         <div class="hero-section">
           <Title level="1" class="main-title">
-            {{ t('app.title') }}
+            {{ selectedMode === 'fact_check' ? t('app.title') : t('app.researchTitle') }}
           </Title>
           <Paragraph class="subtitle">
-            {{ t('app.subtitle') }}
+            {{ selectedMode === 'fact_check' ? t('app.subtitle') : t('app.researchSubtitle') }}
           </Paragraph>
         </div>
+        
+        <ModeSelector v-model:mode="selectedMode" />
         
         <div class="input-section">
           <Space direction="vertical" size="large" class="input-container">
@@ -346,7 +383,7 @@ const handleKeyPress = (e) => {
             >
               <Input.TextArea
                 v-model:value="inputText"
-                :placeholder="t('app.inputPlaceholder')"
+                :placeholder="selectedMode === 'fact_check' ? t('app.inputPlaceholder') : t('app.researchPlaceholder')"
                 :rows="6"
                 class="main-input"
                 @keypress="handleKeyPress"
@@ -398,7 +435,7 @@ const handleKeyPress = (e) => {
               :disabled="!inputText.trim() && !uploadedFile"
               @click="handleSubmit"
             >
-              {{ isLoading ? t('app.analyzing') : t('app.factCheck') }}
+              {{ isLoading ? t('app.analyzing') : (selectedMode === 'fact_check' ? t('app.factCheck') : t('app.research')) }}
             </Button>
             
             <Button 
@@ -418,14 +455,21 @@ const handleKeyPress = (e) => {
             :progress="progress"
             :isConnected="isConnected"
             :usePolling="usePolling"
+            :mode="currentMode"
           />
         </div>
         
         <div v-if="results" class="results-container">
           <FactCheckResults 
+            v-if="selectedMode === 'fact_check'"
             :results="results"
             :originalClaim="originalClaim"
             :uploadedImage="imagePreview"
+          />
+          <ResearchResults 
+            v-else
+            :results="results"
+            :originalClaim="originalClaim"
           />
         </div>
         <div v-if="results" class="new-analysis-section">
@@ -435,7 +479,7 @@ const handleKeyPress = (e) => {
             class="new-analysis-button"
             @click="handleNewAnalysis"
           >
-            Start New Analysis
+            {{ selectedMode === 'fact_check' ? 'Start New Analysis' : 'Start New Research' }}
           </Button>
         </div>
         
@@ -491,6 +535,7 @@ const handleKeyPress = (e) => {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
 .main-layout {
   min-height: 100vh;

@@ -57,8 +57,9 @@ export function useSavedAnalyses() {
    * Saves a new analysis or updates an existing one for the same claim.
    * @param {object} results - The analysis results object.
    * @param {string} originalClaim - The original claim text.
+   * @param {string} mode - The mode used ('fact_check' or 'research').
    */
-  const saveAnalysis = (results, originalClaim) => {
+  const saveAnalysis = (results, originalClaim, mode = 'fact_check') => {
     const normalizedClaim = originalClaim.trim().toLowerCase()
 
     // Find and remove an existing analysis for the same claim to prevent duplicates
@@ -76,6 +77,7 @@ export function useSavedAnalyses() {
       results,
       originalClaim,
       verdict: results.verdict,
+      mode, // Add mode information
     }
     
     // Add the new/updated analysis to the beginning of the array

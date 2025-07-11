@@ -46,10 +46,11 @@ class FactCheckService {
            error.code === 'ECONNRESET'
   }
 
-  async createSession(userInput, uploadedImage = null) {
+  async createSession(userInput, uploadedImage = null, mode = 'fact_check') {
     try {
       const formData = new FormData()
       formData.append('user_input', userInput)
+      formData.append('mode', mode)
       if (uploadedImage) {
         formData.append('uploaded_image', uploadedImage)
       }

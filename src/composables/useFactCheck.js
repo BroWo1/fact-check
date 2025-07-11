@@ -10,6 +10,7 @@ export function useFactCheck() {
   const originalClaim = ref('')
   const isConnected = ref(false)
   const usePolling = ref(false)
+  const currentMode = ref('fact_check') // Track current mode
   
   const progress = reactive({
     percentage: 0,
@@ -24,11 +25,19 @@ export function useFactCheck() {
 
   // Loading state management
   const loadingStates = {
+    // Fact-check states
     'submitting': 'Submitting your request...',
     'initial_web_search': 'Searching for credible sources...',
     'deeper_exploration': 'Conducting detailed research...',
     'source_credibility_evaluation': 'Evaluating source credibility...',
-    'final_conclusion': 'Generating final verdict...'
+    'final_conclusion': 'Generating final verdict...',
+    
+    // Research states
+    'topic_analysis': 'Analyzing your topic...',
+    'research_gathering': 'Gathering research data...',
+    'source_analysis': 'Analyzing sources...',
+    'synthesis': 'Synthesizing information...',
+    'report_generation': 'Generating research report...'
   }
 
   let pollingInterval = null
@@ -41,6 +50,7 @@ export function useFactCheck() {
     originalClaim.value = ''
     isConnected.value = false
     usePolling.value = false
+    currentMode.value = 'fact_check'
     progress.percentage = 0
     progress.currentStep = ''
     progress.stepNumber = 0
@@ -354,23 +364,27 @@ export function useFactCheck() {
     isConnected.value = false
   }
 
-  const startFactCheck = async (userInput, uploadedFile = null) => {
+  const startFactCheck = async (userInput, uploadedFile = null, mode = 'fact_check') => {
     try {
       resetState()
+      currentMode.value = mode // Set the current mode
       isLoading.value = true
       error.value = null
       originalClaim.value = userInput
       progress.currentStep = loadingStates.submitting
+      
+      // Set expected steps based on mode
+      progress.expectedSteps = mode === 'research' ? 4 : 4 // Both modes have 4 steps
 
       // Create fact-check session
-      const response = await factCheckService.createSession(userInput, uploadedFile)
+      const response = await factCheckService.createSession(userInput, uploadedFile, mode)
       sessionId.value = response.session_id
       
       // Cache the session data
-      cacheSessionData(response.session_id, { userInput, uploadedFile: uploadedFile?.name })
+      cacheSessionData(response.session_id, { userInput, uploadedFile: uploadedFile?.name, mode })
 
       // Use polling as the default primary method
-      console.log('Starting fact-check with polling as primary method')
+      console.log(`Starting ${mode} with polling as primary method`)
       usePolling.value = true
       startStatusPolling()
 
@@ -477,6 +491,7 @@ export function useFactCheck() {
     progress,
     isConnected,
     usePolling,
+    currentMode,
     
     // Methods
     startFactCheck,

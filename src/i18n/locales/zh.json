@@ -2,10 +2,14 @@
   "app": {
     "website": "YiYanDingZhen.com",
     "title": "一眼丁真",
+    "researchTitle": "浅度研究",
     "subtitle": "鉴定为...",
+    "researchSubtitle": "对主题和问题进行研究报告",
     "inputPlaceholder": "在此处粘贴您的新闻文章、社交媒体帖子或声明进行事实核查...您也可以直接拖放或粘贴图片！",
+    "researchPlaceholder": "在此输入您的研究问题或主题...例如，'可再生能源的好处是什么？'或'人工智能如何影响医疗保健？'",
     "analyzing": "分析中...",
     "factCheck": "开始鉴定",
+    "research": "研究",
     "exampleTitle": "尝试示例：",
     "infoText": "我们的AI会对照可靠来源分析声明，并提供详细的验证报告"
   },
@@ -50,5 +54,19 @@
     "more": "更多",
     "analysisDeleted": "分析已删除",
     "allAnalysesCleared": "所有分析已清除"
+  },
+  "mode": {
+    "factCheck": "事实核查",
+    "research": "研究报告",
+    "factCheckDescription": "通过基于证据的分析验证特定声明的准确性",
+    "researchDescription": "获取关于主题和问题的综合研究报告"
+  },
+  "research": {
+    "title": "研究报告",
+    "mode": "研究模式",
+    "sources": "来源",
+    "limitations": "限制",
+    "recommendations": "建议",
+    "relevance": "相关性"
   }
 }

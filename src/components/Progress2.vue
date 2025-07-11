@@ -135,7 +135,12 @@ const stepIcons = {
   'submitting': '📤',
   'analyzing': '🧠',
   
-  // Research steps
+  // Research steps (actual backend step types)
+  'research_understanding': '🎯',
+  'general_research': '📚',
+  'specific_research': '🔍',
+  
+  // Legacy research steps (keep for compatibility)
   'topic_analysis': '📊',
   'research_gathering': '📚',
   'source_analysis': '🔍',
@@ -152,7 +157,12 @@ const stepNames = {
   'submitting': 'Submitting Request',
   'analyzing': 'Analyzing Content',
   
-  // Research steps
+  // Research steps (actual backend step types)
+  'research_understanding': 'Research Understanding',
+  'general_research': 'General Research',
+  'specific_research': 'Specific Research',
+  
+  // Legacy research steps (keep for compatibility)
   'topic_analysis': 'Topic Analysis',
   'research_gathering': 'Research Gathering',
   'source_analysis': 'Source Analysis',
@@ -227,7 +237,7 @@ const getProgressTitle = () => {
 // Get main steps for horizontal display
 const getMainSteps = computed(() => {
   const mainStepTypes = props.mode === 'research' 
-    ? ['topic_analysis', 'research_gathering', 'source_analysis', 'report_generation']
+    ? ['research_understanding', 'general_research', 'specific_research']
     : ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
   
   return mainStepTypes.map(stepType => {
@@ -235,7 +245,7 @@ const getMainSteps = computed(() => {
     return {
       key: stepType,
       title: stepNames[stepType],
-      description: step?.summary || '',
+      description: step?.summary || step?.description || '',
       icon: stepIcons[stepType],
       status: step ? mapStepStatus(step.status) : 'wait'
     }
@@ -246,7 +256,7 @@ const getCurrentStepIndex = computed(() => {
   if (!props.progress.steps || props.progress.steps.length === 0) return 0
   
   const mainStepTypes = props.mode === 'research' 
-    ? ['topic_analysis', 'research_gathering', 'source_analysis', 'report_generation']
+    ? ['research_understanding', 'general_research', 'specific_research']
     : ['initial_web_search', 'deeper_exploration', 'source_credibility_evaluation', 'final_conclusion']
   
   const currentStep = props.progress.steps.find(step => step.status === 'in_progress')

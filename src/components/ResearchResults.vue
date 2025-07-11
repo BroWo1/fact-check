@@ -125,6 +125,7 @@ const removeDuplicateCitations = (htmlContent) => {
   const normalizeUrl = (url) => {
     try {
       const urlObj = new URL(url)
+      // Remove common tracking parameters and fragments
       urlObj.search = ''
       urlObj.hash = ''
       return urlObj.toString().replace(/\/$/, '').toLowerCase()
@@ -137,20 +138,32 @@ const removeDuplicateCitations = (htmlContent) => {
     return title.toLowerCase().trim().replace(/\s+/g, ' ')
   }
   
-  citationLinks.forEach(link => {
-    const url = link.getAttribute('href')
-    const title = link.textContent.trim()
+  // Helper function to check if citation already exists
+  const isDuplicate = (url, title) => {
     const normalizedUrl = normalizeUrl(url)
     const normalizedTitle = normalizeTitle(title)
     
+    // Check for URL duplicates
+    if (seenUrls.has(normalizedUrl)) return true
+    
+    // Check for title duplicates (in case same article has different URLs)
+    if (seenTitles.has(normalizedTitle)) return true
+    
+    return false
+  }
+  
+  citationLinks.forEach(link => {
+    const url = link.getAttribute('href')
+    const title = link.textContent.trim()
+    
     // Check if this is a duplicate
-    if (seenUrls.has(normalizedUrl) || seenTitles.has(normalizedTitle)) {
+    if (isDuplicate(url, title)) {
       // Remove the duplicate citation
       link.remove()
     } else {
       // Track this citation
-      seenUrls.add(normalizedUrl)
-      seenTitles.add(normalizedTitle)
+      seenUrls.add(normalizeUrl(url))
+      seenTitles.add(normalizeTitle(title))
     }
   })
   
@@ -168,6 +181,7 @@ const removeDuplicateTextCitations = (textContent) => {
   const normalizeUrl = (url) => {
     try {
       const urlObj = new URL(url)
+      // Remove common tracking parameters and fragments
       urlObj.search = ''
       urlObj.hash = ''
       return urlObj.toString().replace(/\/$/, '').toLowerCase()
@@ -180,19 +194,30 @@ const removeDuplicateTextCitations = (textContent) => {
     return title.toLowerCase().trim().replace(/\s+/g, ' ')
   }
   
-  // Pattern to match markdown links: [title](url)
-  return textContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, title, url) => {
+  // Helper function to check if citation already exists
+  const isDuplicate = (url, title) => {
     const normalizedUrl = normalizeUrl(url)
     const normalizedTitle = normalizeTitle(title)
     
+    // Check for URL duplicates
+    if (seenUrls.has(normalizedUrl)) return true
+    
+    // Check for title duplicates (in case same article has different URLs)
+    if (seenTitles.has(normalizedTitle)) return true
+    
+    return false
+  }
+  
+  // Pattern to match markdown links: [title](url)
+  return textContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, title, url) => {
     // Check if this is a duplicate
-    if (seenUrls.has(normalizedUrl) || seenTitles.has(normalizedTitle)) {
+    if (isDuplicate(url, title)) {
       // Remove the duplicate citation
       return ''
     } else {
       // Track this citation and keep it
-      seenUrls.add(normalizedUrl)
-      seenTitles.add(normalizedTitle)
+      seenUrls.add(normalizeUrl(url))
+      seenTitles.add(normalizeTitle(title))
       return match
     }
   })
@@ -316,7 +341,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   justify-content: center;
   gap: 16px;
   align-items: center;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 14px;
   color: #666666;
 }
@@ -346,7 +371,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   border: 1px solid #d9d9d9;
   border-radius: 6px;
   padding: 8px 16px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 14px;
   color: #000000;
   cursor: pointer;
@@ -371,7 +396,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 .markdown-content {
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   line-height: 1.8;
   color: #333333;
@@ -379,7 +404,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 
 /* Markdown styling */
 .markdown-content :deep(h1) {
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 32px;
   font-weight: 700;
   color: #000000;
@@ -389,7 +414,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 .markdown-content :deep(h2) {
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 24px;
   font-weight: 600;
   color: #000000;
@@ -397,7 +422,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 .markdown-content :deep(h3) {
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 20px;
   font-weight: 600;
   color: #000000;
@@ -405,7 +430,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 .markdown-content :deep(h4) {
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 18px;
   font-weight: 600;
   color: #000000;
@@ -526,7 +551,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 
 .source-title {
   margin: 0;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   font-weight: 600;
 }
@@ -545,7 +570,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 14px;
   color: #666666;
 }
@@ -575,7 +600,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   border-radius: 6px;
   padding: 12px 16px;
   margin-bottom: 8px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 14px;
   color: #666666;
   position: relative;
@@ -605,7 +630,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   border-radius: 6px;
   padding: 12px 16px;
   margin-bottom: 8px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 14px;
   color: #666666;
   position: relative;

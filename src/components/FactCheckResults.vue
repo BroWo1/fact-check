@@ -1138,7 +1138,7 @@ const cleanDuplicateCitations = (citations) => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   padding: 2px 8px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 11px;
   font-weight: 500;
   color: #595959;
@@ -1181,7 +1181,7 @@ p, li{
   padding: 24px;
   margin: 20px 0;
   border: 1px solid #e9ecef;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   scroll-behavior: smooth;
 }
 
@@ -1201,7 +1201,7 @@ p, li{
   border-radius: 8px;
   border-left: 4px solid #1890ff;
   font-style: italic;
-  font-family: 'MyChineseFont', 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', 'LXGW WenKai', serif;
 }
 
 /* Verdict Section */
@@ -1249,7 +1249,7 @@ p, li{
 
 /* Section Titles */
 .section-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 20px;
   font-weight: 600;
   color: #000000;
@@ -1436,7 +1436,7 @@ p, li{
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   padding: 2px 8px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 11px;
   font-weight: 500;
   color: #595959;
@@ -1720,7 +1720,7 @@ p, li{
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1762,7 +1762,7 @@ p, li{
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1854,7 +1854,7 @@ p, li{
   border: 1px solid #e9ecef;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  font-family: 'MyChineseFont', 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
 }
 
 .preview-actions {
@@ -1869,7 +1869,7 @@ p, li{
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  font-family: 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1949,7 +1949,7 @@ p, li{
 
 /* Also apply to modal preview if needed */
 .preview-canvas {
-  font-family: 'MyChineseFont', 'DM Sans', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
 }
 
 /* Debug Section */

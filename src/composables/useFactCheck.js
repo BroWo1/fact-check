@@ -338,7 +338,7 @@ export function useFactCheck() {
           error.value = 'Session not found'
         }
       }
-    }, 2000) // Poll every 2 seconds
+    }, 5000) // Poll every 2 seconds
 
     // Clear polling after 10 minutes to prevent infinite polling
     setTimeout(() => {

@@ -79,11 +79,23 @@ const rotateExample = () => {
   currentExample.value = activeExamples[currentExampleIndex.value]
 }
 
-// Watch for mode changes to reset examples
+// Track if we're currently loading a saved analysis to prevent clearing results
+const isLoadingSavedAnalysis = ref(false)
+
+// Watch for mode changes to reset examples and clear results
 watch(selectedMode, (newMode) => {
   const activeExamples = newMode === 'fact_check' ? examples.value : researchExamples.value
   currentExampleIndex.value = 0
   currentExample.value = activeExamples[0]
+  
+  // Clear results when switching modes but keep input text
+  // Only clear if we're not currently loading a saved analysis
+  if (results.value && !isLoadingSavedAnalysis.value) {
+    results.value = null
+    originalClaim.value = null
+    uploadedFile.value = null
+    imagePreview.value = ''
+  }
 })
 
 const handleClickOutside = (event) => {
@@ -282,6 +294,9 @@ const toggleMobileMenu = () => {
 const handleSelectSavedAnalysis = (analysis) => {
   resetState()
   
+  // Set flag to prevent the mode watcher from clearing results
+  isLoadingSavedAnalysis.value = true
+  
   // Set the analysis data
   results.value = analysis.results
   originalClaim.value = analysis.originalClaim
@@ -293,6 +308,11 @@ const handleSelectSavedAnalysis = (analysis) => {
   inputText.value = analysis.originalClaim
   uploadedFile.value = null
   imagePreview.value = ''
+  
+  // Reset the flag after Vue's reactivity has processed
+  nextTick(() => {
+    isLoadingSavedAnalysis.value = false
+  })
   
   // Show notification
   notification.success({
@@ -402,7 +422,7 @@ const handleKeyPress = (e) => {
                   @click="triggerFileUpload"
                   size="small"
                 >
-                  📷 Upload Photo
+                  📷 {{ t('app.uploadButton') }}
                 </Button>
               </div>
               

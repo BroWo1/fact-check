@@ -11,7 +11,8 @@
     "factCheck": "开始鉴定",
     "research": "研究",
     "exampleTitle": "尝试示例：",
-    "infoText": "我们的AI会对照可靠来源分析声明，并提供详细的验证报告"
+    "infoText": "我们的AI会对照可靠来源分析声明，并提供详细的验证报告",
+    "uploadButton": "上传图片"
   },
   "results": {
     "claimAnalyzed": "分析的声明",

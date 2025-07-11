@@ -11,7 +11,8 @@
     "factCheck": "Fact-Check",
     "research": "Research",
     "exampleTitle": "Example to try:",
-    "infoText": "Our AI analyzes claims against reliable sources and provides detailed verification reports"
+    "infoText": "Our AI analyzes claims against reliable sources and provides detailed verification reports",
+    "uploadButton": "Upload Image"
   },
   "results": {
     "claimAnalyzed": "Claim Analyzed",

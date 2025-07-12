@@ -88,8 +88,14 @@ const props = defineProps({
 
 const copying = ref(false)
 
+// Initialize deduplicator once for the entire component
+const deduplicator = useCitationDeduplicator()
+
 const renderedMarkdown = computed(() => {
   if (!props.results.summary) return ''
+  
+  // Reset deduplicator for fresh calculation
+  deduplicator.reset()
   
   // Configure marked options
   marked.setOptions({
@@ -106,6 +112,9 @@ const renderedMarkdown = computed(() => {
 const deduplicatedTextContent = computed(() => {
   if (!props.results.summary) return ''
   
+  // Reset deduplicator for fresh calculation
+  deduplicator.reset()
+  
   // Remove duplicate citations from the markdown text before processing
   return removeDuplicateTextCitations(props.results.summary)
 })
@@ -114,8 +123,7 @@ const deduplicatedTextContent = computed(() => {
 const removeDuplicateCitations = (htmlContent) => {
   if (!htmlContent) return ''
   
-  const deduplicator = useCitationDeduplicator()
-  deduplicator.reset()
+  // Don't reset here - use the shared deduplicator instance
 
   // Create a temporary div to parse the HTML
   const tempDiv = document.createElement('div')
@@ -145,8 +153,7 @@ const removeDuplicateCitations = (htmlContent) => {
 const removeDuplicateTextCitations = (textContent) => {
   if (!textContent) return ''
   
-  const deduplicator = useCitationDeduplicator()
-  deduplicator.reset()
+  // Don't reset here - use the shared deduplicator instance
   
   // Pattern to match markdown links: [title](url)
   return textContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, title, url) => {

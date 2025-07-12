@@ -230,13 +230,12 @@ export function useFactCheck() {
       })
     }
     
-    // If we have step information, update the progress percentage based on completed steps
-    if (progress.totalSteps > 0) {
+    // Only use calculated percentage as fallback if backend doesn't provide one
+    if (progressData.progress_percentage === undefined && progress.totalSteps > 0) {
       const calculatedPercentage = (progress.completedSteps / progress.totalSteps) * 100
-      if (calculatedPercentage > progress.percentage) {
-        progress.percentage = calculatedPercentage
-      }
+      progress.percentage = calculatedPercentage
     }
+    
     if (progressData.steps && Array.isArray(progressData.steps)) {
         // Create a map for quick updates
         const existingSteps = new Map(progress.steps.map(s => [s.step_number, s]));
@@ -396,7 +395,7 @@ export function useFactCheck() {
           error.value = 'Session not found'
         }
       }
-    }, 5000) // Poll every 2 seconds
+    }, 5000) // Poll every 5 seconds
 
     // Clear polling after 10 minutes to prevent infinite polling
     setTimeout(() => {

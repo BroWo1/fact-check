@@ -155,6 +155,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('./assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .saved-analyses-dropdown {
   position: relative;
   display: inline-block;
@@ -165,7 +173,7 @@ onUnmounted(() => {
   border: 1px solid #e9ecef;
   border-radius: 6px;
   padding: 8px 16px;
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -218,7 +226,7 @@ onUnmounted(() => {
   max-width: 500px;
   max-height: 500px;
   overflow-y: auto;
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
 }
 
 .dropdown-header {

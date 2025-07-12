@@ -427,6 +427,9 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   width: 100%;
   border-collapse: collapse;
   margin: 16px 0;
+  overflow-x: auto;
+  display: block;
+  white-space: nowrap;
 }
 
 .markdown-content :deep(th),
@@ -434,6 +437,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   border: 1px solid #e8e8e8;
   padding: 8px 12px;
   text-align: justify;
+  min-width: 100px;
 }
 
 .markdown-content :deep(th) {
@@ -627,6 +631,21 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+  }
+  
+  .markdown-content :deep(table) {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .markdown-content :deep(th),
+  .markdown-content :deep(td) {
+    padding: 6px 8px;
+    font-size: 14px;
+    min-width: 80px;
   }
 }
 </style>

@@ -45,6 +45,7 @@ const modeDescription = computed(() => {
 </script>
 
 <style scoped>
+
 .mode-selector {
   margin-bottom: 20px;
   text-align: center;
@@ -97,7 +98,7 @@ const modeDescription = computed(() => {
 }
 
 .mode-description {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 13px;
   color: #888888;
   margin: 0;

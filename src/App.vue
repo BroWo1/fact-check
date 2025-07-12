@@ -633,6 +633,13 @@ const handleRecoverSessionClick = async (sessionId) => {
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('./assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .main-layout {
   min-height: 100vh;
   background: #ffffff;
@@ -698,7 +705,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .logo-text {
-  font-family: 'Playfair Display', serif !important;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif !important;
   color: #000000 !important;
   margin: 0 !important;
   font-weight: 700 !important;
@@ -729,7 +736,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .examples-title {
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 14px !important;
   color: #666666 !important;
   margin-bottom: 12px !important;
@@ -759,7 +766,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .example-text {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 13px;
   color: #555555;
   line-height: 1.3;
@@ -777,7 +784,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .main-title {
-  font-family: 'Playfair Display', serif !important;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 48px !important;
   font-weight: 700 !important;
   color: #000000 !important;
@@ -787,7 +794,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .subtitle {
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 20px !important;
   color: #666666 !important;
   max-width: 600px;
@@ -830,7 +837,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .drag-message {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 18px;
   color: #000000;
   font-weight: 600;
@@ -852,7 +859,7 @@ const handleRecoverSessionClick = async (sessionId) => {
   background: #f8f9fa !important;
   border: 1px solid #e9ecef !important;
   color: #666666 !important;
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 12px !important;
   height: 32px !important;
   border-radius: 6px !important;
@@ -881,7 +888,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .preview-title {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 13px;
   color: #666666;
   font-weight: 600;
@@ -919,7 +926,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 .main-input {
   border-radius: 8px !important;
   border: 1px solid #d9d9d9 !important;
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 16px !important;
   transition: all 0.2s ease !important;
   resize: none !important;
@@ -939,7 +946,7 @@ const handleRecoverSessionClick = async (sessionId) => {
   border-radius: 8px !important;
   height: 48px !important;
   padding: 0 32px !important;
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   background: #000000 !important;
@@ -963,7 +970,7 @@ const handleRecoverSessionClick = async (sessionId) => {
   border-radius: 8px !important;
   height: 48px !important;
   padding: 0 32px !important;
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   background: #ffffff !important;
@@ -988,7 +995,7 @@ const handleRecoverSessionClick = async (sessionId) => {
   border-radius: 8px !important;
   height: 48px !important;
   padding: 0 32px !important;
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   background: #ffffff !important;
@@ -1009,7 +1016,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .info-text {
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   color: #999999 !important;
   font-size: 16px !important;
   margin: 0 !important;
@@ -1037,7 +1044,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .footer-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 16px;
   font-weight: 600;
   color: #000000;
@@ -1055,7 +1062,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .footer-link {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 14px;
   color: #666666;
   text-decoration: none;
@@ -1075,7 +1082,7 @@ const handleRecoverSessionClick = async (sessionId) => {
 }
 
 .footer-copyright {
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 12px;
   color: #999999;
   margin: 0;
@@ -1235,38 +1242,5 @@ const handleRecoverSessionClick = async (sessionId) => {
   }
 }
 
-@media (max-width: 480px) {
-  .header {
-    height: 60px;
-  }
-  
-  .header-content {
-    padding: 0 12px;
-  }
-  
-  .logo-image {
-    height: 32px !important;
-    margin-right: 4px !important;
-  }
-  
-  .logo-text {
-    font-size: 16px !important;
-  }
-  
-  .header-actions {
-    gap: 4px;
-  }
-  
-  .main-container {
-    padding: 30px 12px;
-  }
-  
-  .main-title {
-    font-size: 28px !important;
-  }
-  
-  .subtitle {
-    font-size: 16px !important;
-  }
-}
+
 </style>

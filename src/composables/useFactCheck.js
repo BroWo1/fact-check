@@ -106,6 +106,10 @@ export function useFactCheck() {
       case 'analysis_error':
         handleAnalysisError(data.error)
         break
+
+      case 'analysis_cancelled':
+        handleAnalysisCancelled(data.message)
+        break
         
       case 'update':
         if (data.data) {
@@ -309,6 +313,21 @@ export function useFactCheck() {
     isConnected.value = false
   }
 
+  const handleAnalysisCancelled = (message) => {
+    console.log('Analysis cancelled:', message)
+    isLoading.value = false
+    error.value = null // Don't show cancellation as an error
+    progress.currentStep = 'Analysis cancelled'
+    
+    // Remove cancelled session
+    if (sessionId.value) {
+      sessionPersistenceService.removeActiveSession(sessionId.value)
+    }
+    
+    websocketService.disconnect()
+    isConnected.value = false
+  }
+
   const handleWebSocketError = (errorData) => {
     console.error('WebSocket error (ignored, using polling):', errorData)
     // WebSocket errors are ignored since we use polling as primary method
@@ -346,6 +365,15 @@ export function useFactCheck() {
           progress.currentStep = 'Analysis complete'
           
           // Remove from active sessions
+          sessionPersistenceService.removeActiveSession(sessionId.value)
+        } else if (status.status === 'cancelled') {
+          console.log('Analysis was cancelled')
+          stopPolling()
+          isLoading.value = false
+          error.value = null // Don't show cancellation as an error
+          progress.currentStep = 'Analysis cancelled'
+          
+          // Remove cancelled session
           sessionPersistenceService.removeActiveSession(sessionId.value)
         } else if (status.status === 'failed') {
           console.log('Analysis failed:', status.error)
@@ -531,6 +559,14 @@ export function useFactCheck() {
         
         // Remove from active sessions
         sessionPersistenceService.removeActiveSession(sessionData.sessionId)
+      } else if (status.status === 'cancelled') {
+        // Session was cancelled
+        isLoading.value = false
+        error.value = null // Don't show cancellation as an error
+        progress.currentStep = 'Analysis cancelled'
+        
+        // Remove cancelled session
+        sessionPersistenceService.removeActiveSession(sessionData.sessionId)
       } else if (status.status === 'failed') {
         isLoading.value = false
         error.value = 'Analysis failed'
@@ -552,12 +588,26 @@ export function useFactCheck() {
     }
   }
 
-  const cancelFactCheck = () => {
+  const cancelFactCheck = async () => {
+    // Call backend cancel endpoint if we have an active session
+    if (sessionId.value) {
+      try {
+        console.log('Cancelling session:', sessionId.value)
+        await factCheckService.cancelSession(sessionId.value)
+        console.log('Session cancelled successfully')
+      } catch (err) {
+        console.error('Failed to cancel session on backend:', err)
+        // Continue with frontend cleanup even if backend call fails
+      }
+    }
+
+    // Cleanup frontend state
     websocketService.disconnect()
     stopPolling()
     isConnected.value = false
     isLoading.value = false
     usePolling.value = false
+    
     if (sessionId.value) {
       // Remove from active sessions
       sessionPersistenceService.removeActiveSession(sessionId.value)
@@ -568,8 +618,9 @@ export function useFactCheck() {
       } catch (e) {
         console.warn('Failed to clear cached session data:', e)
       }
-      resetState()
     }
+    
+    resetState()
   }
 
   return {

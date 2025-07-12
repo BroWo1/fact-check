@@ -102,6 +102,13 @@ body {
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('./assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 
 /* Apply LXGW font to Chinese text specifically */
 .chinese-text,

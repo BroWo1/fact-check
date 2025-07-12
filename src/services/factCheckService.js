@@ -107,6 +107,15 @@ class FactCheckService {
     }
   }
 
+  async cancelSession(sessionId) {
+    try {
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/cancel/`)
+      return response.data
+    } catch (error) {
+      throw this.handleError(error)
+    }
+  }
+
   async healthCheck() {
     try {
       const response = await this.axiosInstance.get('/health/')

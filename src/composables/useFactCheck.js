@@ -1,6 +1,7 @@
 import { ref, reactive } from 'vue'
 import factCheckService from '../services/factCheckService'
 import websocketService from '../services/websocketService'
+import sessionPersistenceService from '../services/sessionPersistenceService'
 
 export function useFactCheck() {
   const isLoading = ref(false)
@@ -215,6 +216,16 @@ export function useFactCheck() {
       progress.steps = progressData.steps
     }
     
+    // Update session persistence with progress
+    if (sessionId.value) {
+      sessionPersistenceService.updateSessionProgress(sessionId.value, {
+        percentage: progress.percentage,
+        currentStep: progress.currentStep,
+        steps: progress.steps,
+        status: progressData.status || 'in_progress'
+      })
+    }
+    
     // If we have step information, update the progress percentage based on completed steps
     if (progress.totalSteps > 0) {
       const calculatedPercentage = (progress.completedSteps / progress.totalSteps) * 100
@@ -264,12 +275,19 @@ export function useFactCheck() {
         results.value = fullResults
         progress.percentage = 100
         progress.currentStep = 'Analysis complete'
+        
+        // Remove from active sessions
+        sessionPersistenceService.removeActiveSession(sessionId.value)
       } catch (err) {
         console.error('Error fetching final results:', err)
         error.value = 'Failed to fetch final results'
       }
     } else {
       error.value = result.error || 'Analysis failed'
+      // Remove failed session
+      if (sessionId.value) {
+        sessionPersistenceService.removeActiveSession(sessionId.value)
+      }
     }
     
     // Disconnect WebSocket
@@ -281,6 +299,12 @@ export function useFactCheck() {
     console.error('Analysis error:', errorMessage)
     isLoading.value = false
     error.value = errorMessage || 'An error occurred during analysis'
+    
+    // Remove failed session
+    if (sessionId.value) {
+      sessionPersistenceService.removeActiveSession(sessionId.value)
+    }
+    
     websocketService.disconnect()
     isConnected.value = false
   }
@@ -320,11 +344,17 @@ export function useFactCheck() {
           isLoading.value = false
           progress.percentage = 100
           progress.currentStep = 'Analysis complete'
+          
+          // Remove from active sessions
+          sessionPersistenceService.removeActiveSession(sessionId.value)
         } else if (status.status === 'failed') {
           console.log('Analysis failed:', status.error)
           stopPolling()
           isLoading.value = false
           error.value = status.error || 'Analysis failed'
+          
+          // Remove failed session
+          sessionPersistenceService.removeActiveSession(sessionId.value)
         } else {
           console.log('Analysis in progress, status:', status.status)
         }
@@ -382,6 +412,20 @@ export function useFactCheck() {
       
       // Cache the session data
       cacheSessionData(response.session_id, { userInput, uploadedFile: uploadedFile?.name, mode })
+
+      // Save session to persistence service
+      sessionPersistenceService.saveActiveSession({
+        sessionId: response.session_id,
+        originalClaim: userInput,
+        mode: mode,
+        startTime: new Date().toISOString(),
+        uploadedFileName: uploadedFile?.name,
+        progress: {
+          percentage: 0,
+          currentStep: loadingStates.submitting
+        },
+        status: 'in_progress'
+      })
 
       // Use polling as the default primary method
       console.log(`Starting ${mode} with polling as primary method`)
@@ -464,6 +508,50 @@ export function useFactCheck() {
     }
   }
 
+  const recoverSession = async (sessionData) => {
+    try {
+      resetState()
+      
+      // Set session data
+      sessionId.value = sessionData.sessionId
+      originalClaim.value = sessionData.originalClaim
+      currentMode.value = sessionData.mode || 'fact_check'
+      isLoading.value = true
+      
+      // Get current status
+      const status = await factCheckService.getStatus(sessionData.sessionId)
+      
+      if (status.status === 'completed') {
+        // Get final results
+        const fullResults = await factCheckService.getResults(sessionData.sessionId)
+        results.value = fullResults
+        isLoading.value = false
+        progress.percentage = 100
+        progress.currentStep = 'Analysis complete'
+        
+        // Remove from active sessions
+        sessionPersistenceService.removeActiveSession(sessionData.sessionId)
+      } else if (status.status === 'failed') {
+        isLoading.value = false
+        error.value = 'Analysis failed'
+        
+        // Remove failed session
+        sessionPersistenceService.removeActiveSession(sessionData.sessionId)
+      } else {
+        // Session is still in progress, continue monitoring
+        updateProgress(status)
+        usePolling.value = true
+        startStatusPolling()
+      }
+      
+      return { success: true, status: status.status }
+    } catch (err) {
+      console.error('Failed to recover session:', err)
+      resetState()
+      throw err
+    }
+  }
+
   const cancelFactCheck = () => {
     websocketService.disconnect()
     stopPolling()
@@ -471,6 +559,9 @@ export function useFactCheck() {
     isLoading.value = false
     usePolling.value = false
     if (sessionId.value) {
+      // Remove from active sessions
+      sessionPersistenceService.removeActiveSession(sessionId.value)
+      
       // Clear cached data
       try {
         localStorage.removeItem(`fact_check_session_${sessionId.value}`)
@@ -497,6 +588,7 @@ export function useFactCheck() {
     startFactCheck,
     getSessionStatus,
     getSessionResults,
+    recoverSession,
     cancelFactCheck,
     resetState,
     getCachedSessionData,

@@ -1,15 +1,19 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { Input, Button, Typography, Space, Layout, Upload, notification } from 'ant-design-vue'
+import { Input, Button, Typography, Space, Layout, Upload, notification, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useFactCheck } from './composables/useFactCheck'
 import { useSavedAnalyses } from './composables/useSavedAnalyses'
+import { useSessionRecovery } from './composables/useSessionRecovery'
 import AnalysisProgress from './components/Progress2.vue'
 import FactCheckResults from './components/FactCheckResults.vue'
 import ResearchResults from './components/ResearchResults.vue'
 import LanguageSelector from './components/LanguageSelector.vue'
 import SavedAnalysesDropdown from './components/SavedAnalysesDropdown.vue'
 import ModeSelector from './components/ModeSelector.vue'
+import SessionRecoveryDialog from './components/SessionRecoveryDialog.vue'
+import NotificationPermissionBanner from './components/NotificationPermissionBanner.vue'
+import sessionPersistenceService from './services/sessionPersistenceService'
 
 const { Title, Paragraph } = Typography
 const { Header, Content } = Layout
@@ -47,12 +51,27 @@ const {
   usePolling,
   currentMode,
   startFactCheck,
+  recoverSession,
   cancelFactCheck,
   resetState
 } = useFactCheck()
 
 // Saved analyses integration
 const { saveAnalysis, savedAnalyses } = useSavedAnalyses()
+
+// Session recovery integration
+const {
+  availableSessions,
+  isRecovering,
+  showRecoveryDialog,
+  hasRecoverableSessions,
+  formatSessionForDisplay,
+  recoverSession: handleRecoverSession,
+  dismissSession,
+  dismissAllSessions,
+  closeRecoveryDialog,
+  checkForRecoverableSessions
+} = useSessionRecovery()
 
 const examples = ref([
   "New study shows that drinking 8 glasses of water daily can boost brain function by 30%",
@@ -107,6 +126,12 @@ const handleClickOutside = (event) => {
 onMounted(() => {
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
   document.addEventListener('click', handleClickOutside);
+  
+  // Initialize session persistence service
+  sessionPersistenceService.initialize()
+  
+  // Check for recoverable sessions
+  checkForRecoverableSessions()
 })
 
 onUnmounted(() => {
@@ -341,6 +366,41 @@ const handleKeyPress = (e) => {
     handleSubmit()
   }
 }
+
+// Session recovery handlers
+const handleRecoverSessionClick = async (sessionId) => {
+  try {
+    const sessionData = availableSessions.value.find(s => s.sessionId === sessionId)
+    if (!sessionData) {
+      throw new Error('Session data not found')
+    }
+    
+    // Reset current state and recover session
+    await recoverSession(sessionData)
+    
+    // Update UI state
+    selectedMode.value = sessionData.mode || 'fact_check'
+    inputText.value = sessionData.originalClaim
+    uploadedFile.value = null
+    imagePreview.value = ''
+    
+    // Close recovery dialog
+    closeRecoveryDialog()
+    
+    // Scroll to progress if still loading
+    if (isLoading.value) {
+      await nextTick()
+      const progressElement = document.querySelector('.progress-container')
+      if (progressElement) {
+        progressElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+    
+  } catch (error) {
+    console.error('Failed to recover session:', error)
+    // Error is already handled in the recovery composable
+  }
+}
 </script>
 
 <template>
@@ -470,6 +530,11 @@ const handleKeyPress = (e) => {
         </div>
         
         <div ref="analysisProgressRef">
+          <NotificationPermissionBanner 
+            :mode="selectedMode"
+            :isLoading="isLoading"
+          />
+          
           <AnalysisProgress 
             :isLoading="isLoading"
             :progress="progress"
@@ -550,6 +615,17 @@ const handleKeyPress = (e) => {
         </p>
       </div>
     </footer>
+
+    <!-- Session Recovery Dialog -->
+    <SessionRecoveryDialog
+      :visible="showRecoveryDialog"
+      :sessions="availableSessions.map(formatSessionForDisplay)"
+      :isRecovering="isRecovering"
+      @recover="handleRecoverSessionClick"
+      @dismiss="dismissSession"
+      @dismissAll="dismissAllSessions"
+      @close="closeRecoveryDialog"
+    />
   </Layout>
 </template>
 

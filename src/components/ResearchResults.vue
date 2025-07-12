@@ -20,12 +20,12 @@
       <div class="markdown-content" v-html="renderedMarkdown"></div>
     </div>
     
-    <!-- Sources section if available -->
-    <div class="sources-section" v-if="results.sources && results.sources.length > 0">
+    <!-- Sources section if available - NOW USING DEDUPLICATED SOURCES -->
+    <div class="sources-section" v-if="deduplicatedSources && deduplicatedSources.length > 0">
       <h3 class="section-title">{{ t('research.sources') }}</h3>
       <div class="sources-grid">
         <div 
-          v-for="(source, index) in results.sources" 
+          v-for="(source, index) in deduplicatedSources" 
           :key="index"
           class="source-card"
         >
@@ -90,6 +90,25 @@ const copying = ref(false)
 
 // Initialize deduplicator once for the entire component
 const deduplicator = useCitationDeduplicator()
+
+// NEW: Computed property to deduplicate sources
+const deduplicatedSources = computed(() => {
+  if (!props.results.sources || !Array.isArray(props.results.sources)) {
+    return []
+  }
+  
+  const seenUrls = new Set()
+  const uniqueSources = []
+  
+  for (const source of props.results.sources) {
+    if (source.url && !seenUrls.has(source.url)) {
+      seenUrls.add(source.url)
+      uniqueSources.push(source)
+    }
+  }
+  
+  return uniqueSources
+})
 
 const renderedMarkdown = computed(() => {
   if (!props.results.summary) return ''
@@ -184,9 +203,9 @@ Generated: ${formatDate(props.results.created_at)}
 
 ${deduplicatedTextContent.value || 'No summary available'}
 
-${props.results.sources && props.results.sources.length > 0 ? `
+${deduplicatedSources.value && deduplicatedSources.value.length > 0 ? `
 Sources:
-${props.results.sources.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
+${deduplicatedSources.value.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
 ` : ''}
 
 ${props.results.limitations && props.results.limitations.length > 0 ? `
@@ -226,9 +245,9 @@ Generated: ${formatDate(props.results.created_at)}
 
 ${deduplicatedTextContent.value || 'No summary available'}
 
-${props.results.sources && props.results.sources.length > 0 ? `
+${deduplicatedSources.value && deduplicatedSources.value.length > 0 ? `
 Sources:
-${props.results.sources.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
+${deduplicatedSources.value.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
 ` : ''}
 
 ${props.results.limitations && props.results.limitations.length > 0 ? `

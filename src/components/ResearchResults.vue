@@ -71,6 +71,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { notification } from 'ant-design-vue'
+import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 
 const { t } = useI18n()
 
@@ -113,57 +114,27 @@ const deduplicatedTextContent = computed(() => {
 const removeDuplicateCitations = (htmlContent) => {
   if (!htmlContent) return ''
   
+  const deduplicator = useCitationDeduplicator()
+  deduplicator.reset()
+
   // Create a temporary div to parse the HTML
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = htmlContent
   
-  // Find all citation links and track seen URLs
-  const seenUrls = new Set()
-  const seenTitles = new Set()
+  // Find all citation links
   const citationLinks = tempDiv.querySelectorAll('a[href]')
-  
-  const normalizeUrl = (url) => {
-    try {
-      const urlObj = new URL(url)
-      // Remove common tracking parameters and fragments
-      urlObj.search = ''
-      urlObj.hash = ''
-      return urlObj.toString().replace(/\/$/, '').toLowerCase()
-    } catch (e) {
-      return url.toLowerCase()
-    }
-  }
-  
-  const normalizeTitle = (title) => {
-    return title.toLowerCase().trim().replace(/\s+/g, ' ')
-  }
-  
-  // Helper function to check if citation already exists
-  const isDuplicate = (url, title) => {
-    const normalizedUrl = normalizeUrl(url)
-    const normalizedTitle = normalizeTitle(title)
-    
-    // Check for URL duplicates
-    if (seenUrls.has(normalizedUrl)) return true
-    
-    // Check for title duplicates (in case same article has different URLs)
-    if (seenTitles.has(normalizedTitle)) return true
-    
-    return false
-  }
   
   citationLinks.forEach(link => {
     const url = link.getAttribute('href')
     const title = link.textContent.trim()
     
     // Check if this is a duplicate
-    if (isDuplicate(url, title)) {
+    if (deduplicator.isDuplicate(url, title)) {
       // Remove the duplicate citation
       link.remove()
     } else {
       // Track this citation
-      seenUrls.add(normalizeUrl(url))
-      seenTitles.add(normalizeTitle(title))
+      deduplicator.addCitation(url, title)
     }
   })
   
@@ -174,50 +145,18 @@ const removeDuplicateCitations = (htmlContent) => {
 const removeDuplicateTextCitations = (textContent) => {
   if (!textContent) return ''
   
-  // Track seen URLs and titles
-  const seenUrls = new Set()
-  const seenTitles = new Set()
-  
-  const normalizeUrl = (url) => {
-    try {
-      const urlObj = new URL(url)
-      // Remove common tracking parameters and fragments
-      urlObj.search = ''
-      urlObj.hash = ''
-      return urlObj.toString().replace(/\/$/, '').toLowerCase()
-    } catch (e) {
-      return url.toLowerCase()
-    }
-  }
-  
-  const normalizeTitle = (title) => {
-    return title.toLowerCase().trim().replace(/\s+/g, ' ')
-  }
-  
-  // Helper function to check if citation already exists
-  const isDuplicate = (url, title) => {
-    const normalizedUrl = normalizeUrl(url)
-    const normalizedTitle = normalizeTitle(title)
-    
-    // Check for URL duplicates
-    if (seenUrls.has(normalizedUrl)) return true
-    
-    // Check for title duplicates (in case same article has different URLs)
-    if (seenTitles.has(normalizedTitle)) return true
-    
-    return false
-  }
+  const deduplicator = useCitationDeduplicator()
+  deduplicator.reset()
   
   // Pattern to match markdown links: [title](url)
   return textContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, title, url) => {
     // Check if this is a duplicate
-    if (isDuplicate(url, title)) {
+    if (deduplicator.isDuplicate(url, title)) {
       // Remove the duplicate citation
       return ''
     } else {
       // Track this citation and keep it
-      seenUrls.add(normalizeUrl(url))
-      seenTitles.add(normalizeTitle(title))
+      deduplicator.addCitation(url, title)
       return match
     }
   })

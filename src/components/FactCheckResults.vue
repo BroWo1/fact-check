@@ -245,6 +245,7 @@
 <script setup>
 import { ref, nextTick, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 
 const { t } = useI18n()
 
@@ -389,47 +390,14 @@ const extractCitations = (reasoningText) => {
   if (!reasoningText) return []
   
   const citations = []
-  const addedUrls = new Set()
-  const addedTitles = new Set()
-  
-  // Helper function to normalize URLs for comparison
-  const normalizeUrl = (url) => {
-    try {
-      const urlObj = new URL(url)
-      // Remove common tracking parameters and fragments
-      urlObj.search = ''
-      urlObj.hash = ''
-      return urlObj.toString().replace(/\/$/, '').toLowerCase()
-    } catch (e) {
-      return url.toLowerCase()
-    }
-  }
-  
-  // Helper function to normalize titles for comparison
-  const normalizeTitle = (title) => {
-    return title.toLowerCase().trim().replace(/\s+/g, ' ')
-  }
-  
-  // Helper function to check if citation already exists
-  const isDuplicate = (newCitation) => {
-    const normalizedUrl = normalizeUrl(newCitation.url)
-    const normalizedTitle = normalizeTitle(newCitation.title)
-    
-    // Check for URL duplicates
-    if (addedUrls.has(normalizedUrl)) return true
-    
-    // Check for title duplicates (in case same article has different URLs)
-    if (addedTitles.has(normalizedTitle)) return true
-    
-    return false
-  }
+  const deduplicator = useCitationDeduplicator()
+  deduplicator.reset()
   
   // Helper function to add citation if not duplicate
   const addCitation = (citation) => {
-    if (!isDuplicate(citation)) {
+    if (!deduplicator.isDuplicate(citation.url, citation.title)) {
       citations.push(citation)
-      addedUrls.add(normalizeUrl(citation.url))
-      addedTitles.add(normalizeTitle(citation.title))
+      deduplicator.addCitation(citation.url, citation.title)
       return true
     }
     return false

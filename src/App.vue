@@ -101,20 +101,88 @@ const rotateExample = () => {
 // Track if we're currently loading a saved analysis to prevent clearing results
 const isLoadingSavedAnalysis = ref(false)
 
-// Watch for mode changes to reset examples and clear results
-watch(selectedMode, (newMode) => {
+// Store progress data per mode to preserve thinking process when switching
+const progressDataByMode = ref({
+  fact_check: {
+    results: null,
+    originalClaim: null,
+    progress: null,
+    hasResults: false
+  },
+  research: {
+    results: null,
+    originalClaim: null,
+    progress: null,
+    hasResults: false
+  }
+})
+
+// Watch for mode changes to reset examples and switch context
+watch(selectedMode, (newMode, oldMode) => {
   const activeExamples = newMode === 'fact_check' ? examples.value : researchExamples.value
   currentExampleIndex.value = 0
   currentExample.value = activeExamples[0]
   
-  // Clear results when switching modes but keep input text
-  // Only clear if we're not currently loading a saved analysis
-  if (results.value && !isLoadingSavedAnalysis.value) {
-    results.value = null
-    originalClaim.value = null
-    uploadedFile.value = null
-    imagePreview.value = ''
-    progressCollapsed.value = true // Reset to collapsed state for auto-hide
+  // Update the current mode for the progress component
+  currentMode.value = newMode
+  
+  // Only save and switch context if we're not currently loading a saved analysis
+  if (!isLoadingSavedAnalysis.value) {
+    // Save current state to the previous mode
+    if (oldMode && (results.value || progress.steps?.length > 0)) {
+      progressDataByMode.value[oldMode] = {
+        results: results.value,
+        originalClaim: originalClaim.value,
+        progress: progress.steps?.length > 0 ? { 
+          percentage: progress.percentage,
+          currentStep: progress.currentStep,
+          stepNumber: progress.stepNumber,
+          totalSteps: progress.totalSteps,
+          completedSteps: progress.completedSteps,
+          failedSteps: progress.failedSteps,
+          expectedSteps: progress.expectedSteps,
+          steps: [...progress.steps]
+        } : null,
+        hasResults: !!results.value
+      }
+    }
+    
+    // Load state for the new mode
+    const modeData = progressDataByMode.value[newMode]
+    if (modeData.results || modeData.progress) {
+      // Restore the previous state for this mode
+      results.value = modeData.results
+      originalClaim.value = modeData.originalClaim
+      if (modeData.progress) {
+        // Restore progress state
+        progress.percentage = modeData.progress.percentage || 100
+        progress.currentStep = modeData.progress.currentStep || ''
+        progress.stepNumber = modeData.progress.stepNumber || 0
+        progress.totalSteps = modeData.progress.totalSteps || 0
+        progress.completedSteps = modeData.progress.completedSteps || 0
+        progress.failedSteps = modeData.progress.failedSteps || 0
+        progress.expectedSteps = modeData.progress.expectedSteps || (newMode === 'research' ? 3 : 4)
+        progress.steps = modeData.progress.steps || []
+      }
+      // Keep progress expanded if we have data to show
+      progressCollapsed.value = false
+    } else {
+      // Clear state for new mode with no previous data
+      results.value = null
+      originalClaim.value = null
+      uploadedFile.value = null
+      imagePreview.value = ''
+      progressCollapsed.value = true
+      // Reset progress state
+      progress.percentage = 0
+      progress.currentStep = ''
+      progress.stepNumber = 0
+      progress.totalSteps = 0
+      progress.completedSteps = 0
+      progress.failedSteps = 0
+      progress.expectedSteps = newMode === 'research' ? 3 : 4
+      progress.steps = []
+    }
   }
 })
 
@@ -225,6 +293,14 @@ const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behav
 const handleSubmit = async () => {
   if (!inputText.value.trim() && !uploadedFile.value) return
   try {
+    // Clear stored data for current mode when starting new analysis
+    progressDataByMode.value[selectedMode.value] = {
+      results: null,
+      originalClaim: null,
+      progress: null,
+      hasResults: false
+    }
+    
     resetState()
     progressCollapsed.value = false // Ensure progress starts expanded
     await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value)
@@ -281,6 +357,15 @@ watch(results, (newResults) => {
       expectedSteps: progress.expectedSteps,
       steps: progress.steps ? [...progress.steps] : []
     }
+    
+    // Also store in mode-specific data to preserve when switching
+    progressDataByMode.value[selectedMode.value] = {
+      results: newResults,
+      originalClaim: originalClaim.value,
+      progress: progressData,
+      hasResults: true
+    }
+    
     saveAnalysis(newResults, originalClaim.value, selectedMode.value, true, progressData)
     
     if (isUpdate) {
@@ -349,6 +434,14 @@ const handleSelectSavedAnalysis = (analysis) => {
   if (analysis.progress) {
     // Since progress is a reactive object, we need to update its properties individually
     Object.assign(progress, analysis.progress)
+  }
+  
+  // Store in mode-specific storage for preservation during mode switching
+  progressDataByMode.value[analysis.mode || 'fact_check'] = {
+    results: analysis.results,
+    originalClaim: analysis.originalClaim,
+    progress: analysis.progress || null,
+    hasResults: true
   }
   
   // Always start collapsed for auto-hide behavior
@@ -424,6 +517,24 @@ const handleRecoverSessionClick = async (sessionId) => {
   } catch (error) {
     console.error('Failed to recover session:', error)
     // Error is already handled in the recovery composable
+  }
+}
+
+// Function to clear all stored mode data (for complete reset)
+const clearAllModeData = () => {
+  progressDataByMode.value = {
+    fact_check: {
+      results: null,
+      originalClaim: null,
+      progress: null,
+      hasResults: false
+    },
+    research: {
+      results: null,
+      originalClaim: null,
+      progress: null,
+      hasResults: false
+    }
   }
 }
 </script>

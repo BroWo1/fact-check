@@ -84,18 +84,72 @@
       </div>
     </transition>
     
-    <!-- Backdrop -->
     <div 
       v-if="isOpen" 
       class="dropdown-backdrop" 
       @click="closeDropdown"
     ></div>
+
+    <Modal
+      v-model:visible="isModalVisible"
+      :title="t('savedAnalyses.allAnalysesTitle', 'All Saved Analyses')"
+      :footer="null"
+      @cancel="handleModalClose"
+      width="600px"
+      class="all-analyses-modal"
+    >
+      <div class="modal-analyses-list">
+        <div
+          v-for="analysis in savedAnalyses"
+          :key="analysis.id"
+          class="analysis-card"
+          @click="selectAnalysis(analysis)"
+        >
+          <div class="card-header">
+            <div class="card-badge">
+              <span class="mode-icon" :class="analysis.mode || 'fact_check'">
+                {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : '📚' }}
+              </span>
+              <span class="mode-text">
+                {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : 'Research' }}
+              </span>
+            </div>
+            <Button
+              class="card-delete-btn"
+              size="small"
+              @click.stop="deleteAnalysis(analysis.id)"
+            >
+              ✕
+            </Button>
+          </div>
+          <div class="card-content">
+            <div class="card-claim">
+              {{ formatAnalysisForDisplay(analysis).shortClaim }}
+            </div>
+            <div class="card-meta">
+              <div class="card-result" v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict">
+                <span class="result-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
+                <span class="result-text" :style="{ color: getVerdictColor(analysis.verdict) }">
+                  {{ t(`verdict.${analysis.verdict}`) || analysis.verdict }}
+                </span>
+                <span class="result-confidence">
+                  {{ formatAnalysisForDisplay(analysis).confidencePercent }}%
+                </span>
+              </div>
+              <div class="card-date">
+                {{ formatAnalysisForDisplay(analysis).displayDate }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Button } from 'ant-design-vue'
+import { Button, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
 
@@ -114,6 +168,7 @@ const {
 } = useSavedAnalyses()
 
 const isOpen = ref(false)
+const isModalVisible = ref(false)
 
 const toggleDropdown = () => {
   isOpen.value = !isOpen.value
@@ -126,6 +181,7 @@ const closeDropdown = () => {
 const selectAnalysis = (analysis) => {
   emit('select-analysis', analysis)
   closeDropdown()
+  handleModalClose()
 }
 
 const confirmClearAll = () => {
@@ -135,8 +191,12 @@ const confirmClearAll = () => {
 }
 
 const showAllAnalyses = () => {
-  // Could implement a full modal view later
-  console.log('Show all analyses - feature to be implemented')
+  isModalVisible.value = true
+  closeDropdown()
+}
+
+const handleModalClose = () => {
+  isModalVisible.value = false
 }
 
 // Close dropdown when clicking outside
@@ -450,6 +510,21 @@ onUnmounted(() => {
   background: transparent;
 }
 
+/* Modal styles */
+.all-analyses-modal :deep(.ant-modal-body) {
+  padding: 0;
+}
+
+.modal-analyses-list {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fafafa;
+}
+
 /* Dropdown animation */
 .dropdown-fade-enter-active, .dropdown-fade-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
@@ -554,20 +629,24 @@ onUnmounted(() => {
 }
 
 /* Scrollbar styling */
-.dropdown-menu::-webkit-scrollbar {
+.dropdown-menu::-webkit-scrollbar,
+.modal-analyses-list::-webkit-scrollbar {
   width: 4px;
 }
 
-.dropdown-menu::-webkit-scrollbar-track {
+.dropdown-menu::-webkit-scrollbar-track,
+.modal-analyses-list::-webkit-scrollbar-track {
   background: #f8f9fa;
 }
 
-.dropdown-menu::-webkit-scrollbar-thumb {
+.dropdown-menu::-webkit-scrollbar-thumb,
+.modal-analyses-list::-webkit-scrollbar-thumb {
   background: #e9ecef;
   border-radius: 2px;
 }
 
-.dropdown-menu::-webkit-scrollbar-thumb:hover {
+.dropdown-menu::-webkit-scrollbar-thumb:hover,
+.modal-analyses-list::-webkit-scrollbar-thumb:hover {
   background: #d0d0d0;
 }
 </style>

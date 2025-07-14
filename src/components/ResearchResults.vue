@@ -8,10 +8,10 @@
       </div>
       <div class="research-actions">
         <button class="action-button" @click="copyToClipboard" :disabled="copying">
-          {{ copying ? '📋 Copying...' : '📋 Copy Report' }}
+          {{ copying ? '📋 Copying...' : '📋 ' + t('research.copy') }}
         </button>
         <button class="action-button" @click="downloadReport">
-          📄 Download TXT
+          📄 {{ t('research.download') }}
         </button>
       </div>
     </div>

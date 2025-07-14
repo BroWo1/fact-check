@@ -57,10 +57,10 @@
     "allAnalysesCleared": "所有分析已清除"
   },
   "mode": {
-    "factCheck": "事实核查",
+    "factCheck": "事实鉴定",
     "research": "研究报告",
-    "factCheckDescription": "通过基于证据的分析验证特定声明的准确性",
-    "researchDescription": "获取关于主题和问题的综合研究报告"
+    "factCheckDescription": "通过基于证据的分析验证特定言论的准确性 (预计2-4分钟)",
+    "researchDescription": "获取关于主题和问题的综合研究报告 (预计3-5分钟)"
   },
   "research": {
     "title": "研究报告",
@@ -68,6 +68,56 @@
     "sources": "来源",
     "limitations": "限制",
     "recommendations": "建议",
-    "relevance": "相关性"
+    "relevance": "相关性",
+    "startNewResearch": "开始新的研究",
+    "copy": "复制报告",
+    "download": "下载 TXT"
+  },
+  "loading": {
+    "submitting": "正在提交您的请求...",
+    "initial_web_search": "正在搜索可信来源...",
+    "deeper_exploration": "正在进行详细研究...",
+    "source_credibility_evaluation": "正在评估来源可信度...",
+    "final_conclusion": "正在生成最终结论...",
+    "topic_analysis": "正在分析您的主题...",
+    "research_gathering": "正在收集研究数据...",
+    "source_analysis": "正在分析来源...",
+    "synthesis": "正在综合信息...",
+    "report_generation": "正在生成研究报告..."
+  },
+  "progress": {
+    "titles": {
+      "analyzingClaim": "思考过程",
+      "researchingTopic": "思考过程"
+    },
+    "steps": {
+      "initial_web_search": "初步搜索",
+      "deeper_exploration": "深度探索",
+      "source_credibility_evaluation": "来源评估",
+      "final_conclusion": "最终结论",
+      "submitting": "提交请求",
+      "analyzing": "分析内容",
+      "research_understanding": "研究理解",
+      "general_research": "一般研究",
+      "specific_research": "专项研究",
+      "topic_analysis": "主题分析",
+      "research_gathering": "研究收集",
+      "source_analysis": "来源分析",
+      "synthesis": "信息综合",
+      "report_generation": "报告生成"
+    },
+    "ui": {
+      "showDetails": "显示",
+      "hideDetails": "隐藏",
+      "details": "详情",
+      "stepOf": "第 {current} 步，共 {total} 步",
+      "completed": "已完成",
+      "analysisComplete": "分析完成"
+    },
+    "status": {
+      "polling": "正在使用状态轮询（WebSocket 不可用）",
+      "connected": "实时更新已连接",
+      "connecting": "正在连接实时更新..."
+    }
   }
 }

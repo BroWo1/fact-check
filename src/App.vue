@@ -114,6 +114,7 @@ watch(selectedMode, (newMode) => {
     originalClaim.value = null
     uploadedFile.value = null
     imagePreview.value = ''
+    progressCollapsed.value = true // Reset to collapsed state for auto-hide
   }
 })
 
@@ -219,11 +220,13 @@ const triggerFileUpload = () => {
 }
 
 const analysisProgressRef = ref(null)
+const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behavior
 
 const handleSubmit = async () => {
   if (!inputText.value.trim() && !uploadedFile.value) return
   try {
     resetState()
+    progressCollapsed.value = false // Ensure progress starts expanded
     await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value)
     notification.success({
       message: selectedMode.value === 'fact_check' ? 'Analysis Started' : 'Research Started',
@@ -266,7 +269,19 @@ watch(results, (newResults) => {
     )
 
     // Auto-save the analysis (this will now handle update-or-create)
-    saveAnalysis(newResults, originalClaim.value, selectedMode.value)
+    // Always save as collapsed for auto-hide behavior on reload
+    // Convert reactive progress object to plain object for saving
+    const progressData = {
+      percentage: progress.percentage,
+      currentStep: progress.currentStep,
+      stepNumber: progress.stepNumber,
+      totalSteps: progress.totalSteps,
+      completedSteps: progress.completedSteps,
+      failedSteps: progress.failedSteps,
+      expectedSteps: progress.expectedSteps,
+      steps: progress.steps ? [...progress.steps] : []
+    }
+    saveAnalysis(newResults, originalClaim.value, selectedMode.value, true, progressData)
     
     if (isUpdate) {
       notification.info({
@@ -328,6 +343,16 @@ const handleSelectSavedAnalysis = (analysis) => {
   
   // Set the mode based on the saved analysis
   selectedMode.value = analysis.mode || 'fact_check'
+  currentMode.value = analysis.mode || 'fact_check'
+  
+  // Restore progress data if available
+  if (analysis.progress) {
+    // Since progress is a reactive object, we need to update its properties individually
+    Object.assign(progress, analysis.progress)
+  }
+  
+  // Always start collapsed for auto-hide behavior
+  progressCollapsed.value = true
   
   // Fill the input box with the original claim
   inputText.value = analysis.originalClaim
@@ -541,6 +566,9 @@ const handleRecoverSessionClick = async (sessionId) => {
             :isConnected="isConnected"
             :usePolling="usePolling"
             :mode="currentMode"
+            :initialCollapsed="progressCollapsed"
+            :hasResults="!!results"
+            @update:collapsed="progressCollapsed = $event"
           />
         </div>
         

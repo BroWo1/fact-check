@@ -32,45 +32,46 @@
           <div 
             v-for="analysis in recentAnalyses" 
             :key="analysis.id"
-            class="analysis-item"
+            class="analysis-card"
             @click="selectAnalysis(analysis)"
           >
-            <div class="analysis-header">
-              <div class="verdict-info">
-                <span class="mode-badge" :class="analysis.mode || 'fact_check'">
+            <div class="card-header">
+              <div class="card-badge">
+                <span class="mode-icon" :class="analysis.mode || 'fact_check'">
                   {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : '📚' }}
                 </span>
-                <span v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict" class="verdict-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
-                <span v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict" class="verdict-text" :style="{ color: getVerdictColor(analysis.verdict) }">
-                  {{ t(`verdict.${analysis.verdict}`) || analysis.verdict }}
+                <span class="mode-text">
+                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : 'Research' }}
                 </span>
-                <span v-if="(analysis.mode || 'fact_check') === 'research'" class="research-indicator">
-                  {{ t('mode.research') }}
-                </span>
-              </div>
-              <div class="analysis-date">
-                {{ formatAnalysisForDisplay(analysis).displayDate }}
-              </div>
-            </div>
-            
-            <div class="analysis-claim">
-              {{ formatAnalysisForDisplay(analysis).shortClaim }}
-            </div>
-            
-            <div class="analysis-footer">
-              <div class="confidence-info" v-if="(analysis.mode || 'fact_check') === 'fact_check'">
-                {{ t('results.confidence') }}: {{ formatAnalysisForDisplay(analysis).confidencePercent }}%
-              </div>
-              <div class="mode-info" v-else>
-                {{ t('research.title') }}
               </div>
               <Button 
-                class="delete-btn"
+                class="card-delete-btn"
                 size="small"
                 @click.stop="deleteAnalysis(analysis.id)"
               >
-                🗑️
+                ✕
               </Button>
+            </div>
+            
+            <div class="card-content">
+              <div class="card-claim">
+                {{ formatAnalysisForDisplay(analysis).shortClaim }}
+              </div>
+              
+              <div class="card-meta">
+                <div class="card-result" v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict">
+                  <span class="result-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
+                  <span class="result-text" :style="{ color: getVerdictColor(analysis.verdict) }">
+                    {{ t(`verdict.${analysis.verdict}`) || analysis.verdict }}
+                  </span>
+                  <span class="result-confidence">
+                    {{ formatAnalysisForDisplay(analysis).confidencePercent }}%
+                  </span>
+                </div>
+                <div class="card-date">
+                  {{ formatAnalysisForDisplay(analysis).displayDate }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -155,7 +156,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-
 @font-face {
   font-family: 'LXGW Neo ZhiSong Plus';
   src: url('./assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
@@ -184,7 +184,7 @@ onUnmounted(() => {
 
 .dropdown-trigger:hover {
   background: #e9ecef;
-  border-color: #dee2e6;
+  border-color: #000000;
 }
 
 .dropdown-trigger.has-analyses {
@@ -217,12 +217,12 @@ onUnmounted(() => {
   position: absolute;
   top: 100%;
   right: 0;
-  background: #ffffff;
+  background: #fafafa;
   border: 1px solid #e9ecef;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  min-width: 400px;
+  min-width: 420px;
   max-width: 500px;
   max-height: 500px;
   overflow-y: auto;
@@ -235,153 +235,193 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
-  max-height: 72px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
   z-index: 1001;
+  max-height: 72px;
+
 }
 
 .dropdown-header h3 {
   margin: 0;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 16px;
   font-weight: 600;
-  color: #333333;
+  color: #000000;
 }
 
 .clear-all-btn {
-  background: #f0f0f0;
-  color: #595959;
-  border: 1px solid #d9d9d9;
+  background: #f8f9fa;
+  color: #666666;
+  border: 1px solid #e9ecef;
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 12px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   transition: all 0.2s ease;
 }
 
 .clear-all-btn:hover {
-  background: #e6e6e6;
-  border-color: #bfbfbf;
+  background: #e9ecef;
+  border-color: #000000;
+  color: #000000;
 }
 
 .empty-state {
-  padding: 40px 20px;
+  padding: 30px 16px;
   text-align: center;
   color: #666666;
+  background: #ffffff;
+  margin: 6px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 
 .analyses-list {
-  padding: 8px 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.analysis-item {
-  padding: 6px 16px;
-  border-bottom: 1px solid #f5f5f5;
+.analysis-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 8px 10px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.analysis-item:hover {
+.analysis-card:hover {
   background: #f8f9fa;
+  border-color: #d0d0d0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.analysis-item:last-child {
-  border-bottom: none;
-}
-
-.analysis-header {
+.card-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 2px;
-max-height: 40px;
+  align-items: center;
+  margin-bottom: 5px;
+  max-height: 40px;
+
 }
 
-.verdict-info {
+.card-badge {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.mode-badge {
+.mode-icon {
   font-size: 14px;
-  opacity: 0.8;
 }
 
-.mode-badge.fact_check {
+.mode-icon.fact_check {
   color: #1890ff;
 }
 
-.mode-badge.research {
+.mode-icon.research {
   color: #52c41a;
 }
 
-.research-indicator {
-  font-family: 'Crimson Text', serif;
-  font-size: 12px;
-  color: #52c41a;
-  font-weight: 600;
-}
-
-.mode-info {
-  font-family: 'Crimson Text', serif;
-  font-size: 12px;
-  color: #52c41a;
-  font-weight: 600;
-}
-
-.verdict-icon {
-  font-size: 14px;
-}
-
-.verdict-text {
+.mode-text {
   font-size: 11px;
   font-weight: 600;
+  color: #666666;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.analysis-date {
+.card-delete-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
   font-size: 11px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #999999;
+  opacity: 0.6;
 }
 
-.analysis-claim {
+.card-delete-btn:hover {
+  background: #f0f0f0;
+  color: #ff4d4f;
+  opacity: 1;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-claim {
   font-size: 13px;
   color: #333333;
-  line-height: 1.3;
-  margin-bottom: 4px;
+  line-height: 1.4;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.analysis-footer {
+.card-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   max-height: 40px;
 }
 
-.confidence-info {
+.card-result {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
+}
+
+.result-icon {
+  font-size: 12px;
+}
+
+.result-text {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.result-confidence {
   color: #666666;
+  font-weight: 500;
 }
 
-.delete-btn {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.delete-btn:hover {
-  background: #f5f5f5;
+.card-date {
+  font-size: 11px;
+  color: #999999;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
 .show-more {
-  padding: 12px 20px;
-  border-top: 1px solid #e9ecef;
-  background: #f8f9fa;
+  padding: 8px 16px;
+  background: #ffffff;
   text-align: center;
+  margin: 0 6px 6px 6px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 
 .show-more-btn {
@@ -391,10 +431,13 @@ max-height: 40px;
   font-size: 12px;
   padding: 6px 12px;
   border-radius: 4px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
 }
 
 .show-more-btn:hover {
   background: #e9ecef;
+  border-color: #000000;
+  color: #000000;
 }
 
 .dropdown-backdrop {
@@ -409,34 +452,122 @@ max-height: 40px;
 
 /* Dropdown animation */
 .dropdown-fade-enter-active, .dropdown-fade-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
 }
 
 .dropdown-fade-enter-from, .dropdown-fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+  filter: blur(4px);
 }
 
 .dropdown-fade-enter-to, .dropdown-fade-leave-from {
   opacity: 1;
   transform: translateY(0);
+  filter: blur(0);
 }
 
 /* Responsive design */
 @media (max-width: 768px) {
   .dropdown-menu {
-    right: -20px;
-    left: -20px;
+    position: fixed;
+    right: 16px;
+    left: 16px;
+    top: auto;
     min-width: auto;
     max-width: none;
+    width: auto;
+    margin: 0;
+    transform: translateY(8px);
   }
   
   .dropdown-header {
-    padding: 12px 16px;
+    padding: 8px 12px;
   }
   
-  .analysis-item {
-    padding: 10px 16px;
+  .dropdown-header h3 {
+    font-size: 15px;
   }
+  
+  .analyses-list {
+    padding: 6px;
+    gap: 5px;
+  }
+  
+  .analysis-card {
+    padding: 8px 10px;
+  }
+  
+  .card-header {
+    margin-bottom: 3px;
+  }
+  
+  .mode-icon {
+    font-size: 15px;
+  }
+  
+  .mode-text {
+    font-size: 12px;
+  }
+  
+  .card-delete-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+  
+  .card-content {
+    gap: 3px;
+  }
+  
+  .card-claim {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  
+  .card-meta {
+    gap: 12px;
+  }
+  
+  .card-result {
+    font-size: 12px;
+    gap: 5px;
+  }
+  
+  .result-icon {
+    font-size: 13px;
+  }
+  
+  .card-date {
+    font-size: 12px;
+  }
+  
+  .empty-state {
+    margin: 6px;
+    padding: 24px 12px;
+  }
+  
+  .show-more {
+    margin: 0 6px 6px 6px;
+    padding: 6px 12px;
+  }
+}
+
+/* Scrollbar styling */
+.dropdown-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: #e9ecef;
+  border-radius: 2px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: #d0d0d0;
 }
 </style>

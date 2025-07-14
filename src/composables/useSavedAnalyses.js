@@ -58,8 +58,10 @@ export function useSavedAnalyses() {
    * @param {object} results - The analysis results object.
    * @param {string} originalClaim - The original claim text.
    * @param {string} mode - The mode used ('fact_check' or 'research').
+   * @param {boolean} progressCollapsed - Whether the progress section is collapsed.
+   * @param {object} progress - The progress data including steps and percentage.
    */
-  const saveAnalysis = (results, originalClaim, mode = 'fact_check') => {
+  const saveAnalysis = (results, originalClaim, mode = 'fact_check', progressCollapsed = true, progress = null) => {
     const normalizedClaim = originalClaim.trim().toLowerCase()
 
     // Find and remove an existing analysis for the same claim to prevent duplicates
@@ -78,6 +80,8 @@ export function useSavedAnalyses() {
       originalClaim,
       verdict: results.verdict,
       mode, // Add mode information
+      progressCollapsed: true, // Always save as collapsed for auto-hide on reload
+      progress, // Save progress data including steps
     }
     
     // Add the new/updated analysis to the beginning of the array

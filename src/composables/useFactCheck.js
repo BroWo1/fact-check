@@ -1,9 +1,11 @@
 import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import factCheckService from '../services/factCheckService'
 import websocketService from '../services/websocketService'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 export function useFactCheck() {
+  const { t } = useI18n()
   const isLoading = ref(false)
   const sessionId = ref(null)
   const error = ref(null)
@@ -25,21 +27,21 @@ export function useFactCheck() {
   })
 
   // Loading state management
-  const loadingStates = {
+  const getLoadingStates = () => ({
     // Fact-check states
-    'submitting': 'Submitting your request...',
-    'initial_web_search': 'Searching for credible sources...',
-    'deeper_exploration': 'Conducting detailed research...',
-    'source_credibility_evaluation': 'Evaluating source credibility...',
-    'final_conclusion': 'Generating final verdict...',
+    'submitting': t('loading.submitting'),
+    'initial_web_search': t('loading.initial_web_search'),
+    'deeper_exploration': t('loading.deeper_exploration'),
+    'source_credibility_evaluation': t('loading.source_credibility_evaluation'),
+    'final_conclusion': t('loading.final_conclusion'),
     
     // Research states
-    'topic_analysis': 'Analyzing your topic...',
-    'research_gathering': 'Gathering research data...',
-    'source_analysis': 'Analyzing sources...',
-    'synthesis': 'Synthesizing information...',
-    'report_generation': 'Generating research report...'
-  }
+    'topic_analysis': t('loading.topic_analysis'),
+    'research_gathering': t('loading.research_gathering'),
+    'source_analysis': t('loading.source_analysis'),
+    'synthesis': t('loading.synthesis'),
+    'report_generation': t('loading.report_generation')
+  })
 
   let pollingInterval = null
 
@@ -125,6 +127,7 @@ export function useFactCheck() {
   const handleStepUpdate = (stepData) => {
     // Update current step based on step type
     const stepType = stepData.step_type || stepData.stepType
+    const loadingStates = getLoadingStates()
     progress.currentStep = loadingStates[stepType] || stepData.description || `Processing ${stepType}...`
     
     if (stepData.progress_percentage !== undefined) {
@@ -168,6 +171,7 @@ export function useFactCheck() {
       step => step.step_number === stepNumber
     );
     
+    const loadingStates = getLoadingStates()
     const stepInfo = {
       step_number: stepNumber,
       description: stepData.description || loadingStates[stepData.step_type] || `Step ${stepNumber}`,
@@ -200,6 +204,7 @@ export function useFactCheck() {
     }
     if (progressData.status) {
       // Map status to current step if no specific step is provided
+      const loadingStates = getLoadingStates()
       if (!progress.currentStep && loadingStates[progressData.status]) {
         progress.currentStep = loadingStates[progressData.status]
       }
@@ -258,6 +263,7 @@ export function useFactCheck() {
 
   const updateStep = (stepData) => {
     const stepType = stepData.step_type || stepData.stepType
+    const loadingStates = getLoadingStates()
     progress.currentStep = loadingStates[stepType] || stepData.description || ''
     
     if (stepData.progress_percentage !== undefined) {
@@ -278,6 +284,15 @@ export function useFactCheck() {
         results.value = fullResults
         progress.percentage = 100
         progress.currentStep = 'Analysis complete'
+        
+        // Mark all steps as completed if they exist
+        if (progress.steps && progress.steps.length > 0) {
+          progress.steps.forEach(step => {
+            if (step.status !== 'completed') {
+              step.status = 'completed'
+            }
+          })
+        }
         
         // Remove from active sessions
         sessionPersistenceService.removeActiveSession(sessionId.value)
@@ -428,7 +443,7 @@ export function useFactCheck() {
       isLoading.value = true
       error.value = null
       originalClaim.value = userInput
-      progress.currentStep = loadingStates.submitting
+      progress.currentStep = getLoadingStates().submitting
       
       // Set expected steps based on mode
       progress.expectedSteps = mode === 'research' ? 4 : 4 // Both modes have 4 steps
@@ -449,7 +464,7 @@ export function useFactCheck() {
         uploadedFileName: uploadedFile?.name,
         progress: {
           percentage: 0,
-          currentStep: loadingStates.submitting
+          currentStep: getLoadingStates().submitting
         },
         status: 'in_progress'
       })
@@ -644,6 +659,6 @@ export function useFactCheck() {
     getCachedSessionData,
     
     // Advanced features
-    loadingStates
+    getLoadingStates
   }
 }

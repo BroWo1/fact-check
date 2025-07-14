@@ -1,7 +1,7 @@
 <template>
   <div class="progress-container" v-if="isLoading || progress.percentage > 0">
     <div class="progress-header">
-      <h3 class="progress-title">Analyzing Your Claim</h3>
+      <h3 class="progress-title">{{ t('loading.analyzeClaim') }}</h3>
       <div class="progress-percentage">{{ Math.round(progress.percentage) }}%</div>
     </div>
     

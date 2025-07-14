@@ -59,8 +59,8 @@
   "mode": {
     "factCheck": "Fact Check",
     "research": "Research",
-    "factCheckDescription": "Verify the accuracy of specific claims with evidence-based analysis",
-    "researchDescription": "Get comprehensive research reports on topics and questions"
+    "factCheckDescription": "Verify the accuracy of specific claims with evidence-based analysis (2-4 minutes est.)",
+    "researchDescription": "Get comprehensive research reports on topics and questions (3-5 minutes est.)"
   },
   "research": {
     "title": "Research Report",
@@ -68,6 +68,56 @@
     "sources": "Sources",
     "limitations": "Limitations",
     "recommendations": "Recommendations",
-    "relevance": "Relevance"
+    "relevance": "Relevance",
+    "startNewResearch": "Start New Research",
+    "copy": "Copy Report",
+    "download": "Download TXT"
+  },
+  "loading": {
+    "submitting": "Submitting your request...",
+    "initial_web_search": "Searching for credible sources...",
+    "deeper_exploration": "Conducting detailed research...",
+    "source_credibility_evaluation": "Evaluating source credibility...",
+    "final_conclusion": "Generating final verdict...",
+    "topic_analysis": "Analyzing your topic...",
+    "research_gathering": "Gathering research data...",
+    "source_analysis": "Analyzing sources...",
+    "synthesis": "Synthesizing information...",
+    "report_generation": "Generating research report..."
+  },
+  "progress": {
+    "titles": {
+      "analyzingClaim": "Thinking Process",
+      "researchingTopic": "Thinking Process"
+    },
+    "steps": {
+      "initial_web_search": "Initial Search",
+      "deeper_exploration": "Deeper Exploration",
+      "source_credibility_evaluation": "Source Evaluation",
+      "final_conclusion": "Final Conclusion",
+      "submitting": "Submitting Request",
+      "analyzing": "Analyzing Content",
+      "research_understanding": "Research Understanding",
+      "general_research": "General Research",
+      "specific_research": "Specific Research",
+      "topic_analysis": "Topic Analysis",
+      "research_gathering": "Research Gathering",
+      "source_analysis": "Source Analysis",
+      "synthesis": "Information Synthesis",
+      "report_generation": "Report Generation"
+    },
+    "ui": {
+      "showDetails": "Show",
+      "hideDetails": "Hide",
+      "details": "Details",
+      "stepOf": "Step {current} of {total}",
+      "completed": "completed",
+      "analysisComplete": "Analysis Complete"
+    },
+    "status": {
+      "polling": "Using status polling (WebSocket unavailable)",
+      "connected": "Real-time updates connected",
+      "connecting": "Connecting to live updates..."
+    }
   }
 }

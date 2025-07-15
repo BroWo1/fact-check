@@ -275,15 +275,24 @@ export function useFactCheck() {
 
   const handleAnalysisComplete = async (result) => {
     console.log('Analysis complete:', result)
-    isLoading.value = false
     
     if (result.success && sessionId.value) {
       try {
         // Fetch the complete results
         const fullResults = await factCheckService.getResults(sessionId.value)
         results.value = fullResults
+        
+        // Ensure originalClaim is set if it's missing but available in results
+        if (!originalClaim.value && fullResults.original_claim) {
+          console.log('📝 Setting originalClaim from results:', fullResults.original_claim)
+          originalClaim.value = fullResults.original_claim
+        }
+        
         progress.percentage = 100
         progress.currentStep = 'Analysis complete'
+        
+        // Set isLoading to false AFTER results are set to ensure proper watch trigger
+        isLoading.value = false
         
         // Mark all steps as completed if they exist
         if (progress.steps && progress.steps.length > 0) {
@@ -298,9 +307,11 @@ export function useFactCheck() {
         sessionPersistenceService.removeActiveSession(sessionId.value)
       } catch (err) {
         console.error('Error fetching final results:', err)
+        isLoading.value = false
         error.value = 'Failed to fetch final results'
       }
     } else {
+      isLoading.value = false
       error.value = result.error || 'Analysis failed'
       // Remove failed session
       if (sessionId.value) {
@@ -374,6 +385,13 @@ export function useFactCheck() {
           stopPolling()
           const fullResults = await factCheckService.getResults(sessionId.value)
           results.value = fullResults
+          
+          // Ensure originalClaim is set if it's missing but available in results
+          if (!originalClaim.value && fullResults.original_claim) {
+            console.log('📝 Setting originalClaim from results:', fullResults.original_claim)
+            originalClaim.value = fullResults.original_claim
+          }
+          
           isLoading.value = false
           progress.percentage = 100
           progress.currentStep = 'Analysis complete'
@@ -552,13 +570,26 @@ export function useFactCheck() {
 
   const recoverSession = async (sessionData) => {
     try {
+      console.log('🔄 Recovering session with data:', {
+        sessionId: sessionData.sessionId,
+        originalClaim: sessionData.originalClaim,
+        mode: sessionData.mode
+      })
+      
+      // Preserve the original claim BEFORE resetState clears it
+      const preservedClaim = sessionData.originalClaim || ''
+      
       resetState()
       
-      // Set session data
+      // Set session data - restore the preserved claim
       sessionId.value = sessionData.sessionId
-      originalClaim.value = sessionData.originalClaim
+      originalClaim.value = preservedClaim
       currentMode.value = sessionData.mode || 'fact_check'
       isLoading.value = true
+      
+      console.log('🔄 After setting originalClaim:', originalClaim.value)
+      console.log('🔄 Preserved claim:', preservedClaim)
+      console.log('🔄 Original claim is truthy:', !!originalClaim.value)
       
       // Get current status
       const status = await factCheckService.getStatus(sessionData.sessionId)
@@ -567,6 +598,20 @@ export function useFactCheck() {
         // Get final results
         const fullResults = await factCheckService.getResults(sessionData.sessionId)
         results.value = fullResults
+        
+        // Ensure originalClaim is preserved - try multiple sources
+        if (!originalClaim.value) {
+          if (fullResults.original_claim) {
+            console.log('📝 Setting originalClaim from results during recovery:', fullResults.original_claim)
+            originalClaim.value = fullResults.original_claim
+          } else if (preservedClaim) {
+            console.log('📝 Restoring originalClaim from preserved value:', preservedClaim)
+            originalClaim.value = preservedClaim
+          }
+        }
+        
+        console.log('🔄 Final originalClaim after recovery:', originalClaim.value)
+        
         isLoading.value = false
         progress.percentage = 100
         progress.currentStep = 'Analysis complete'

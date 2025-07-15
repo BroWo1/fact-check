@@ -1,6 +1,7 @@
 import { createApp, h } from 'vue';
 import Antd from 'ant-design-vue';
 import { ConfigProvider } from 'ant-design-vue';
+import router from './router/index.js';
 import App from './App.vue';
 import { themeConfig } from './theme.js';
 import i18n from './i18n/index.js';
@@ -14,4 +15,4 @@ const app = createApp({
   }
 });
 
-app.use(Antd).use(i18n).mount('#app');
+app.use(Antd).use(i18n).use(router).mount('#app');

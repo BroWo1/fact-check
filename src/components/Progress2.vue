@@ -15,7 +15,6 @@
       </div>
     </div>
     
-    <!-- Collapsible Content -->
     <div class="progress-content" :class="{ 'collapsed': isCollapsed }">
       <div class="progress-inner">
         <div class="progress-bar-container">
@@ -27,7 +26,6 @@
           </div>
         </div>
         
-        <!-- Main Steps Display -->
         <div class="steps-container">
           <a-steps 
             :current="getCurrentStepIndex" 
@@ -36,14 +34,30 @@
             :direction="isMobile ? 'vertical' : 'horizontal'"
           >
             <a-step 
-              v-for="(step, index) in getMainSteps" 
+              v-for="step in getMainSteps" 
               :key="step.key"
               :title="step.title"
-              :description="step.description"
               :status="step.status"
             >
               <template #icon>
                 <span class="step-icon-emoji">{{ step.icon }}</span>
+              </template>
+              <template #description>
+                <div 
+                  class="description-container" 
+                  :class="{ 'is-collapsed': !expandedDescriptions[step.key] && isLongDescription(step.description) }"
+                >
+                  <div class="description-text">
+                    {{ step.description }}
+                  </div>
+                </div>
+                <button 
+                  v-if="isLongDescription(step.description)" 
+                  @click="toggleDescription(step.key)"
+                  class="toggle-description-btn"
+                >
+                  {{ expandedDescriptions[step.key] ? t('progress.ui.viewLess') : t('progress.ui.viewMore') }}
+                </button>
               </template>
             </a-step>
           </a-steps>
@@ -98,9 +112,11 @@ const props = defineProps({
 
 const emit = defineEmits(['update:collapsed'])
 
-const showDetails = ref(false)
 const isMobile = ref(false)
 const isCollapsed = ref(props.initialCollapsed)
+
+// ADDED: State for expandable descriptions
+const expandedDescriptions = ref({})
 
 // Timer related variables
 const analysisStartTime = ref(null)
@@ -195,14 +211,13 @@ watch(() => props.isLoading, (newVal, oldVal) => {
     isCollapsed.value = false
     startTimer()
   } else if (!newVal && oldVal) {
-    // Analysis stopped - only auto-collapse if we don't already have results
-    // (prevents overriding saved collapsed state when loading saved analyses)
+    // Analysis stopped
     stopTimer()
     if (!props.hasResults) {
       setTimeout(() => {
         isCollapsed.value = true
         emit('update:collapsed', true)
-      }, 2000) // 2 second delay to let user see final state
+      }, 2000)
     }
   }
 }, { immediate: true })
@@ -225,6 +240,17 @@ const toggleCollapsed = () => {
   }
 }
 
+// ADDED: Toggle description expansion for a single step
+const toggleDescription = (stepKey) => {
+  expandedDescriptions.value[stepKey] = !expandedDescriptions.value[stepKey]
+}
+
+// ADDED: Check if a description is long enough to need a "View more" button
+const isLongDescription = (description) => {
+  // Threshold based on approx 5 lines of text
+  return description && description.length > 200;
+}
+
 const formatElapsedTime = (ms) => {
   const seconds = Math.floor(ms / 1000)
   const minutes = Math.floor(seconds / 60)
@@ -239,7 +265,6 @@ const formatElapsedTime = (ms) => {
 
 // Get progress title based on mode and state
 const getProgressTitle = () => {
-  // Default titles during analysis
   return props.mode === 'research' 
     ? t('progress.titles.researchingTopic') 
     : t('progress.titles.analyzingClaim')
@@ -250,7 +275,6 @@ const getDisplayPercentage = () => {
   if (props.progress && props.progress.percentage !== undefined) {
     return Math.round(props.progress.percentage)
   }
-  // If we have results (saved analysis) but no active loading, show 100%
   return props.hasResults && !props.isLoading ? 100 : 0
 }
 
@@ -263,8 +287,6 @@ const getMainSteps = computed(() => {
   return mainStepTypes.map(stepType => {
     const step = props.progress?.steps?.find(s => s.step_type === stepType)
     
-    // If we have results but no active progress (saved analysis), show all steps as completed
-    // Also check if this step was saved in progress data
     let status = 'wait'
     let description = ''
     
@@ -272,7 +294,6 @@ const getMainSteps = computed(() => {
       status = mapStepStatus(step.status)
       description = step.summary || step.description || ''
     } else if (props.hasResults && !props.isLoading) {
-      // For saved analyses without step details, show all steps as completed
       status = 'finish'
       description = 'Completed'
     }
@@ -289,7 +310,6 @@ const getMainSteps = computed(() => {
 
 const getCurrentStepIndex = computed(() => {
   if (!props.progress?.steps || props.progress.steps.length === 0) {
-    // If we have results but no progress steps (saved analysis), show all steps completed
     if (props.hasResults && !props.isLoading) {
       const mainStepTypes = props.mode === 'research' 
         ? ['research_understanding', 'general_research', 'specific_research']
@@ -310,7 +330,6 @@ const getCurrentStepIndex = computed(() => {
     return index >= 0 ? index : 0
   }
   
-  // Return the last completed step index
   const completedSteps = props.progress.steps.filter(step => step.status === 'completed')
   const lastCompleted = completedSteps[completedSteps.length - 1]
   
@@ -323,18 +342,6 @@ const getCurrentStepIndex = computed(() => {
 })
 
 const getStepsStatus = computed(() => {
-  const hasError = props.progress?.steps?.some(step => step.status === 'failed')
-  return hasError ? 'error' : 'process'
-})
-
-const getCurrentDetailStepIndex = computed(() => {
-  if (!props.progress?.steps || props.progress.steps.length === 0) return 0
-  
-  const currentStepIndex = props.progress.steps.findIndex(step => step.status === 'in_progress')
-  return currentStepIndex >= 0 ? currentStepIndex : props.progress.steps.length
-})
-
-const getDetailStepsStatus = computed(() => {
   const hasError = props.progress?.steps?.some(step => step.status === 'failed')
   return hasError ? 'error' : 'process'
 })
@@ -359,40 +366,23 @@ const getCurrentPhase = computed(() => {
   return null
 })
 
-const getStepIcon = (stepType) => {
-  return stepIcons[stepType] || '⏳'
-}
-
-const getStepName = (stepType) => {
-  return stepNames[stepType] ? stepNames[stepType]() : stepType
-}
-
-const getStepDescription = (step) => {
-  let description = step.summary || ''
-  if (step.timestamp) {
-    const time = formatTimestamp(step.timestamp)
-    description += description ? ` • ${time}` : time
-  }
-  return description
-}
-
-const formatTimestamp = (timestamp) => {
-  try {
-    return new Date(timestamp).toLocaleTimeString()
-  } catch (e) {
-    return timestamp
-  }
-}
 </script>
 
 <style scoped>
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('../assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .progress-container {
   background: #fafafa;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   overflow: hidden;
   margin: 20px 0;
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   transition: all 0.3s ease-out;
 }
 
@@ -424,28 +414,22 @@ const formatTimestamp = (timestamp) => {
   transform: scale(1.1);
 }
 
-/* --- ANIMATION REFACTOR --- */
-/* Use CSS Grid to animate height from 0 to auto for a linear, natural feel. */
-/* --- ANIMATION REFACTOR --- */
-/* Use CSS Grid to animate height with an ease-in-out curve. */
 .progress-content {
   display: grid;
-  grid-template-rows: 1fr; /* Expanded state */
+  grid-template-rows: 1fr;
   overflow: hidden;
-  /* Use faster and simpler transition for a snappier feel */
   transition: grid-template-rows 0.25s ease, border-top-color 0.25s ease;
   border-top: 1px solid #e9ecef;
 }
 
 .progress-content.collapsed {
-  grid-template-rows: 0fr; /* Collapsed state */
+  grid-template-rows: 0fr;
   border-top-color: transparent;
 }
 
 .progress-inner {
   padding: 20px 24px;
-  min-height: 0; /* Crucial for allowing the grid to collapse the element to zero height */
-  /* Animate padding for a faster, smoother visual */
+  min-height: 0;
   opacity: 1;
   filter: blur(0);
   transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
@@ -457,8 +441,6 @@ const formatTimestamp = (timestamp) => {
     opacity: 0;
     filter: blur(4px);
 }
-/* --- END REFACTOR --- */
-
 
 .progress-title {
   font-family: 'Playfair Display', serif;
@@ -490,7 +472,7 @@ const formatTimestamp = (timestamp) => {
   font-size: 12px;
   font-weight: 500;
   color: #666666;
-  font-family: 'Crimson Text', serif;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   line-height: 1;
   transition: opacity 0.2s ease-out;
 }
@@ -531,22 +513,21 @@ const formatTimestamp = (timestamp) => {
   margin-bottom: 20px;
 }
 
-/* Custom styling for a-steps */
 :deep(.ant-steps-item-title) {
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 14px !important;
   color: #333333 !important;
   transition: color 0.2s ease-out !important;
 }
 
 :deep(.ant-steps-item-description) {
-  font-family: 'Crimson Text', serif !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
   font-size: 12px !important;
   color: #666666 !important;
   transition: color 0.2s ease-out !important;
+  line-height: 1.5; 
 }
 
-/* Remove background colors and borders for emoji icons */
 :deep(.ant-steps-item-icon) {
   background-color: transparent !important;
   border: none !important;
@@ -570,7 +551,6 @@ const formatTimestamp = (timestamp) => {
   transition: transform 0.2s ease-out, opacity 0.2s ease-out;
 }
 
-/* Animate current step emoji */
 :deep(.ant-steps-item-process) .step-icon-emoji {
   animation: pulse 2.5s ease-in-out infinite;
 }
@@ -601,45 +581,63 @@ const formatTimestamp = (timestamp) => {
   font-size: 11px;
 }
 
+/* CORRECTED: Styles for reliable description expand/collapse */
+.description-container {
+  position: relative;
+  overflow: hidden;
+  /* REMOVED: The transition was conflicting with the parent animation. */
+  max-height: 1000px; /* Default expanded height */
+}
+
+.description-container.is-collapsed {
+  max-height: 7.5em; /* Approx 5 lines, scales with font-size */
+}
+
+/* Adds a fade-out effect at the bottom of the collapsed text */
+.description-container.is-collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3em; 
+  background: linear-gradient(to bottom, rgba(250, 250, 250, 0), #fafafa 85%);
+  pointer-events: none;
+}
+
+.toggle-description-btn {
+  background: none;
+  border: none;
+  color: #1890ff;
+  cursor: pointer;
+  padding: 4px 0 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.toggle-description-btn:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .progress-header {
     padding: 12px 16px;
   }
-  
-  .progress-header.collapsed {
-    padding: 10px 16px;
-  }
-  
   .progress-inner {
     padding: 16px;
   }
-  
   .progress-title {
     font-size: 16px;
   }
-  
-  .progress-percentage {
-    font-size: 14px;
-  }
-  
-  .analysis-timer {
-    font-size: 11px;
-  }
-    
   :deep(.ant-steps-item-title) {
     font-size: 13px !important;
   }
-  
   :deep(.ant-steps-item-description) {
     font-size: 11px !important;
   }
-  
-  .step-icon-emoji {
-    font-size: 16px;
-  }
 }
 
-/* Smooth entry animation for the entire component */
 .progress-container {
   animation: slideIn 0.5s ease-out;
 }

@@ -112,7 +112,9 @@
       "details": "Details",
       "stepOf": "Step {current} of {total}",
       "completed": "completed",
-      "analysisComplete": "Analysis Complete"
+      "analysisComplete": "Analysis Complete",
+      "viewLess": "View Less",
+      "viewMore": "View More"
     },
     "status": {
       "polling": "Using status polling (WebSocket unavailable)",

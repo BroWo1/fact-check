@@ -112,7 +112,9 @@
       "details": "详情",
       "stepOf": "第 {current} 步，共 {total} 步",
       "completed": "已完成",
-      "analysisComplete": "分析完成"
+      "analysisComplete": "分析完成",
+      "viewLess": "查看更少",
+      "viewMore": "查看更多"
     },
     "status": {
       "polling": "正在使用状态轮询（WebSocket 不可用）",

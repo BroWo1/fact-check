@@ -16,6 +16,7 @@ export default defineConfig({
     },
   },
   server: {
+    historyApiFallback: true, // Support for history mode routing
     proxy: {
       '/api': {
         target: 'https://server.itlookslegit.com',

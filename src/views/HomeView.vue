@@ -797,10 +797,11 @@ const clearAllModeData = () => {
         
         <div v-if="!isLoading && !results" class="examples-section">
           <Paragraph class="examples-title">{{ t('app.exampleTitle') }}</Paragraph>
-          <!-- Debug test button -->
+          <!-- Debug test button 
           <Button @click="testSave" style="margin-bottom: 16px; background: #ff6b6b; border-color: #ff6b6b; color: white;">
             🧪 Test Save (Debug)
           </Button>
+          -->
           <div class="rotating-example">
             <div 
               class="example-card rotating" 

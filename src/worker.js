@@ -17,7 +17,6 @@ export default {
     
     // Handle API requests by proxying to backend
     if (url.pathname.startsWith('/api')) {
-      // Keep the /api prefix when forwarding to backend
       const backendUrl = new URL(url.pathname, 'https://server.itlookslegit.com');
       backendUrl.search = url.search;
       
@@ -51,7 +50,10 @@ export default {
         });
       } catch (error) {
         console.error('Backend request failed:', error);
-        return new Response(JSON.stringify({ error: 'Backend service unavailable', details: error.message }), {
+        return new Response(JSON.stringify({ 
+          error: 'Backend service unavailable', 
+          details: error.message 
+        }), {
           status: 503,
           headers: { 
             'Content-Type': 'application/json',
@@ -63,42 +65,64 @@ export default {
       }
     }
     
-    // Handle SPA routing - serve index.html for non-asset requests
-    if (!url.pathname.includes('.') && !url.pathname.startsWith('/api')) {
+    // Define static asset extensions
+    const staticAssetExtensions = [
+      '.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', 
+      '.woff', '.woff2', '.ttf', '.eot', '.otf', '.mp4', '.webm', 
+      '.mp3', '.wav', '.pdf', '.zip', '.json', '.xml', '.txt'
+    ];
+    
+    // Check if request is for a static asset
+    const isStaticAsset = staticAssetExtensions.some(ext => 
+      url.pathname.toLowerCase().endsWith(ext)
+    );
+    
+    // Serve static assets directly
+    if (isStaticAsset) {
       try {
-        const indexAsset = await env.ASSETS.fetch(new URL(url.origin + '/index.html'));
-        return new Response(indexAsset.body, {
-          headers: {
-            'Content-Type': 'text/html',
-            'Cache-Control': 'no-cache'
-          }
+        const response = await env.ASSETS.fetch(request);
+        
+        // Add appropriate cache headers for static assets
+        const newHeaders = new Headers(response.headers);
+        newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+        
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: newHeaders
         });
       } catch (e) {
-        return new Response('Not found', { status: 404 });
+        console.error('Static asset not found:', url.pathname);
+        return new Response('Asset not found', { status: 404 });
       }
     }
     
-    // Serve static assets
+    // Handle SPA routing - serve index.html for all non-asset, non-API requests
     try {
-      const response = await env.ASSETS.fetch(request);
+      const indexRequest = new Request(new URL('/index.html', url.origin), request);
+      const indexResponse = await env.ASSETS.fetch(indexRequest);
       
-      // Add appropriate headers for static assets
-      const newHeaders = new Headers(response.headers);
-      
-      // Set cache headers for static assets
-      if (url.pathname.includes('.')) {
-        if (url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$/)) {
-          newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
-        }
+      if (!indexResponse.ok) {
+        throw new Error('index.html not found');
       }
       
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: newHeaders
+      return new Response(indexResponse.body, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
     } catch (e) {
-      return new Response('Asset not found', { status: 404 });
+      console.error('Failed to serve index.html:', e);
+      return new Response('Application not found', { 
+        status: 404,
+        headers: {
+          'Content-Type': 'text/html'
+        }
+      });
     }
   }
 };

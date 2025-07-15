@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run clean-redirects",
+    "clean-redirects": "rm -f dist/_redirects",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && npx wrangler deploy"
   },
   "dependencies": {
     "ant-design-vue": "^4.2.6",

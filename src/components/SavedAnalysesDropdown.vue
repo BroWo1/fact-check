@@ -277,13 +277,13 @@ onUnmounted(() => {
   position: absolute;
   top: 100%;
   right: 0;
-  background: #fafafa;
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  min-width: 420px;
-  max-width: 500px;
+  min-width: 400px;
+  max-width: 480px;
   max-height: 500px;
   overflow-y: auto;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
@@ -296,11 +296,10 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  border-bottom: 1px solid #f0f0f0;
   background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
   z-index: 1001;
   max-height: 72px;
-
 }
 
 .dropdown-header h3 {
@@ -366,7 +365,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 5px;
-  max-height: 40px;
+  max-height: 32px;
 
 }
 
@@ -443,7 +442,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  max-height: 40px;
+  max-height: 32px;
 }
 
 .card-result {

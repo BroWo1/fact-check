@@ -1,9 +1,9 @@
 {
   "app": {
-    "website": "YiYanDingZhen.com",
-    "title": "一眼丁真",
+    "website": "itLooksLegit.com",
+    "title": "言论鉴定",
     "researchTitle": "浅度研究",
-    "subtitle": "鉴定为...",
+    "subtitle": "鉴定为真？假？",
     "researchSubtitle": "对主题和问题进行研究报告",
     "inputPlaceholder": "在此处粘贴您的新闻文章、社交媒体帖子或声明进行事实核查...您也可以直接拖放或粘贴图片！",
     "researchPlaceholder": "在此输入您的研究问题或主题...例如，'可再生能源的好处是什么？'或'人工智能如何影响医疗保健？'",

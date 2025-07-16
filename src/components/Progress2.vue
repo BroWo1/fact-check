@@ -590,7 +590,7 @@ const getCurrentPhase = computed(() => {
 }
 
 .description-container.is-collapsed {
-  max-height: 7.5em; /* Approx 5 lines, scales with font-size */
+  max-height: 15em; /* Approx 5 lines, scales with font-size */
 }
 
 /* Adds a fade-out effect at the bottom of the collapsed text */

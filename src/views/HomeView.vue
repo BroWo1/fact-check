@@ -633,14 +633,12 @@ const clearAllModeData = () => {
       <div class="header-content">
         <div class="logo-section" @click="handleLogoClick">
           <img 
-            src="../assets/logo.png" 
+            src="../assets/itlookslegitTrans.png" 
             alt="Logo" 
             class="logo-image"
             style="height: 56px; width: auto; margin-right: 8px;"
           />
-          <Title level="2" class="logo-text">
-            {{ t('app.website') }}
-          </Title>
+
         </div>
         <div class="header-actions" ref="headerActionsRef">
           <div class="header-menu-items-wrapper-desktop">

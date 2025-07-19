@@ -15,35 +15,51 @@
         </button>
       </div>
     </div>
-    
+
     <div class="research-content">
       <div class="markdown-content" v-html="renderedMarkdown"></div>
     </div>
-    
-    <!-- Sources section if available - NOW USING DEDUPLICATED SOURCES -->
-    <div class="sources-section" v-if="deduplicatedSources && deduplicatedSources.length > 0">
-      <h3 class="section-title">{{ t('research.sources') }}</h3>
-      <div class="sources-grid">
-        <div 
-          v-for="(source, index) in deduplicatedSources" 
-          :key="index"
-          class="source-card"
-        >
-          <div class="source-header">
-            <h4 class="source-title">
-              <a :href="source.url" target="_blank" rel="noopener noreferrer">
-                {{ source.title || source.url }}
-              </a>
-            </h4>
-            <div class="source-meta">
-              <span class="source-publisher" v-if="source.publisher">
-                {{ source.publisher }}
-              </span>
+
+    <!-- Sources section - NOW COLLAPSIBLE -->
+    <div class="sources-section" v-if="deduplicatedSources && deduplicatedSources.length > 0" id="sources-section">
+      <div class="sources-header" @click="toggleSourcesCollapsed" :class="{ 'collapsed': isSourcesCollapsed }">
+        <h3 class="section-title">
+          {{ t('research.sources') }}
+          <span class="sources-count">({{ deduplicatedSources.length }})</span>
+        </h3>
+        <div class="collapse-indicator" :class="{ 'collapsed': isSourcesCollapsed }">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="sources-content" :class="{ 'collapsed': isSourcesCollapsed }">
+        <div class="sources-inner">
+          <div class="sources-grid">
+            <div
+              v-for="(source, index) in deduplicatedSources"
+              :key="index"
+              class="source-card"
+            >
+              <div class="source-header">
+                <h4 class="source-title">
+                  <a :href="source.url" target="_blank" rel="noopener noreferrer">
+                    {{ source.title || source.url }}
+                  </a>
+                </h4>
+                <div class="source-meta">
+                  <span class="source-publisher" v-if="source.publisher">
+                    {{ source.publisher }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
     <!-- Limitations section if available -->
     <div class="limitations-section" v-if="results.limitations && results.limitations.length > 0">
       <h3 class="section-title">{{ t('research.limitations') }}</h3>
@@ -53,7 +69,7 @@
         </li>
       </ul>
     </div>
-    
+
     <!-- Recommendations section if available -->
     <div class="recommendations-section" v-if="results.recommendations && results.recommendations.length > 0">
       <h3 class="section-title">{{ t('research.recommendations') }}</h3>
@@ -67,7 +83,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { notification } from 'ant-design-vue'
@@ -86,36 +102,44 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['headings-extracted'])
+
 const copying = ref(false)
+const isSourcesCollapsed = ref(true) // Start collapsed by default
 
 // Initialize deduplicator once for the entire component
 const deduplicator = useCitationDeduplicator()
+
+// Toggle sources collapsed state
+const toggleSourcesCollapsed = () => {
+  isSourcesCollapsed.value = !isSourcesCollapsed.value
+}
 
 // NEW: Computed property to deduplicate sources
 const deduplicatedSources = computed(() => {
   if (!props.results.sources || !Array.isArray(props.results.sources)) {
     return []
   }
-  
+
   const seenUrls = new Set()
   const uniqueSources = []
-  
+
   for (const source of props.results.sources) {
     if (source.url && !seenUrls.has(source.url)) {
       seenUrls.add(source.url)
       uniqueSources.push(source)
     }
   }
-  
+
   return uniqueSources
 })
 
 const renderedMarkdown = computed(() => {
   if (!props.results.summary) return ''
-  
+
   // Reset deduplicator for fresh calculation
   deduplicator.reset()
-  
+
   // Configure marked options
   marked.setOptions({
     breaks: true,
@@ -123,17 +147,81 @@ const renderedMarkdown = computed(() => {
     sanitize: false,
     smartypants: true
   })
-  
-  return removeDuplicateCitations(marked(props.results.summary))
+
+  const htmlContent = addIdsToHeadings(removeDuplicateCitations(marked(props.results.summary)))
+
+  // Extract headings and emit to parent
+  nextTick(() => {
+    extractAndEmitHeadings(htmlContent)
+  })
+
+  return htmlContent
 })
+
+// NEW: Add unique IDs to headings for TOC navigation
+const addIdsToHeadings = (htmlContent) => {
+  if (!htmlContent) return ''
+
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = htmlContent
+
+  const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6')
+
+  headings.forEach((heading, index) => {
+    const text = heading.textContent.trim()
+    const id = `heading-${index}-${text.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
+    heading.id = id
+    heading.style.scrollMarginTop = '80px'
+  })
+
+  return tempDiv.innerHTML
+}
+
+// NEW: Extract headings and emit to parent component
+const extractAndEmitHeadings = (htmlContent) => {
+  if (!htmlContent) return
+
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = htmlContent
+
+  const headings = []
+  const h2AndH3Elements = tempDiv.querySelectorAll('h2, h3')
+
+  h2AndH3Elements.forEach((heading) => {
+    const level = parseInt(heading.tagName.charAt(1))
+    const text = heading.textContent.trim()
+    const id = heading.id
+
+    if (text && id) {
+      headings.push({
+        id,
+        text,
+        level,
+        isSource: false
+      })
+    }
+  })
+
+  // Add sources section if it exists
+  if (deduplicatedSources.value && deduplicatedSources.value.length > 0) {
+    headings.push({
+      id: 'sources-section',
+      text: `${t('research.sources')} (${deduplicatedSources.value.length})`,
+      level: 2,
+      isSource: true
+    })
+  }
+
+  emit('headings-extracted', headings)
+}
 
 // Get deduplicated text content for copying/downloading
 const deduplicatedTextContent = computed(() => {
   if (!props.results.summary) return ''
-  
+
   // Reset deduplicator for fresh calculation
   deduplicator.reset()
-  
+
   // Remove duplicate citations from the markdown text before processing
   return removeDuplicateTextCitations(props.results.summary)
 })
@@ -141,20 +229,20 @@ const deduplicatedTextContent = computed(() => {
 // Function to remove duplicate citations from markdown content
 const removeDuplicateCitations = (htmlContent) => {
   if (!htmlContent) return ''
-  
+
   // Don't reset here - use the shared deduplicator instance
 
   // Create a temporary div to parse the HTML
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = htmlContent
-  
+
   // Find all citation links
   const citationLinks = tempDiv.querySelectorAll('a[href]')
-  
+
   citationLinks.forEach(link => {
     const url = link.getAttribute('href')
     const title = link.textContent.trim()
-    
+
     // Check if this is a duplicate
     if (deduplicator.isDuplicate(url, title)) {
       // Remove the duplicate citation
@@ -164,16 +252,16 @@ const removeDuplicateCitations = (htmlContent) => {
       deduplicator.addCitation(url, title)
     }
   })
-  
+
   return tempDiv.innerHTML
 }
 
 // Function to remove duplicate citations from text content
 const removeDuplicateTextCitations = (textContent) => {
   if (!textContent) return ''
-  
+
   // Don't reset here - use the shared deduplicator instance
-  
+
   // Pattern to match markdown links: [title](url)
   return textContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, title, url) => {
     // Check if this is a duplicate
@@ -270,7 +358,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
-  
+
   notification.success({
     message: 'Download Started',
     description: 'Your research report is being downloaded.',
@@ -384,6 +472,8 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   font-weight: 600;
   color: #000000;
   margin: 28px 0 12px 0;
+  scroll-margin-top: 80px;
+  text-align: center;
 }
 
 .markdown-content :deep(h3) {
@@ -392,6 +482,8 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   font-weight: 600;
   color: #000000;
   margin: 24px 0 8px 0;
+  scroll-margin-top: 80px;
+  text-align: center;
 }
 
 .markdown-content :deep(h4) {
@@ -400,6 +492,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   font-weight: 600;
   color: #000000;
   margin: 20px 0 8px 0;
+  scroll-margin-top: 80px;
 }
 
 .markdown-content :deep(p) {
@@ -490,8 +583,96 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   padding-bottom: 8px;
 }
 
+/* Collapsible sources section styles */
 .sources-section {
   margin-bottom: 24px;
+  background: #fafafa;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease-out;
+  scroll-margin-top: 80px;
+}
+
+.sources-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease-out;
+  border-bottom: 1px solid transparent;
+}
+
+.sources-header:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sources-header.collapsed {
+  border-bottom-color: transparent;
+}
+
+.sources-header .section-title {
+  margin: 0;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sources-count {
+  font-size: 16px;
+  font-weight: 500;
+  color: #666666;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
+}
+
+.collapse-indicator {
+  color: #999999;
+  transition: transform 0.3s ease, color 0.2s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+}
+
+.collapse-indicator.collapsed {
+  transform: rotate(-90deg);
+}
+
+.sources-header:hover .collapse-indicator {
+  color: #1890ff;
+}
+
+.sources-content {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.25s ease;
+  border-top: 1px solid #e9ecef;
+}
+
+.sources-content.collapsed {
+  grid-template-rows: 0fr;
+  border-top-color: transparent;
+}
+
+.sources-inner {
+  padding: 20px;
+  min-height: 0;
+  opacity: 1;
+  filter: blur(0);
+  transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.sources-content.collapsed .sources-inner {
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  filter: blur(4px);
 }
 
 .sources-grid {
@@ -500,7 +681,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 .source-card {
-  background: #f9f9f9;
+  background: #ffffff;
   border-radius: 8px;
   padding: 16px;
   border: 1px solid #e8e8e8;
@@ -617,48 +798,56 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   .research-results {
     padding: 20px;
   }
-  
+
   .research-title {
     font-size: 24px;
   }
-  
+
   .research-info {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .research-actions {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .action-button {
     width: 100%;
     justify-content: center;
   }
-  
+
   .markdown-content {
     font-size: 15px;
   }
-  
+
   .markdown-content :deep(h1) {
     font-size: 28px;
   }
-  
+
   .markdown-content :deep(h2) {
     font-size: 22px;
   }
-  
+
   .markdown-content :deep(h3) {
     font-size: 18px;
   }
-  
+
+  .sources-header {
+    padding: 12px 16px;
+  }
+
+  .sources-inner {
+    padding: 16px;
+  }
+
   .source-meta {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
   }
-  
+
   .markdown-content :deep(table) {
     display: block;
     overflow-x: auto;
@@ -666,7 +855,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   .markdown-content :deep(th),
   .markdown-content :deep(td) {
     padding: 6px 8px;

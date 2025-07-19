@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Input, Button, Typography, Space, Layout, Upload, notification, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -14,6 +14,7 @@ import SavedAnalysesDropdown from '../components/SavedAnalysesDropdown.vue'
 import ModeSelector from '../components/ModeSelector.vue'
 import SessionRecoveryDialog from '../components/SessionRecoveryDialog.vue'
 import NotificationPermissionBanner from '../components/NotificationPermissionBanner.vue'
+import TableOfContents from '../components/TableOfContents.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 // Define props
@@ -29,6 +30,17 @@ const router = useRouter()
 
 // Get the uuid from route params or props
 const uuid = ref(route.params.uuid || props.uuid)
+const tocHeadings = ref([]);
+const isTocCollapsed = ref(true); // Default to collapsed on mobile
+
+const showToc = computed(() => {
+  return !!results.value && selectedMode.value === 'research' && tocHeadings.value.length > 0;
+});
+
+
+const handleHeadingsExtracted = (headings) => {
+  tocHeadings.value = headings
+}
 
 // Function to navigate to analysis URL
 const navigateToAnalysis = (analysisId) => {
@@ -38,24 +50,24 @@ const navigateToAnalysis = (analysisId) => {
 // Handle selecting a saved analysis - defined after all variables are declared
 function handleSelectSavedAnalysis(analysis) {
   resetState()
-  
+
   // Set flag to prevent the mode watcher from clearing results
   isLoadingSavedAnalysis.value = true
-  
+
   // Set the analysis data
   results.value = analysis.results
   originalClaim.value = analysis.originalClaim
-  
+
   // Set the mode based on the saved analysis
   selectedMode.value = analysis.mode || 'fact_check'
   currentMode.value = analysis.mode || 'fact_check'
-  
+
   // Restore progress data if available
   if (analysis.progress) {
     // Since progress is a reactive object, we need to update its properties individually
     Object.assign(progress, analysis.progress)
   }
-  
+
   // Store in mode-specific storage for preservation during mode switching
   progressDataByMode.value[analysis.mode || 'fact_check'] = {
     results: analysis.results,
@@ -63,35 +75,35 @@ function handleSelectSavedAnalysis(analysis) {
     progress: analysis.progress || null,
     hasResults: true
   }
-  
+
   // Always start collapsed for auto-hide behavior
   progressCollapsed.value = true
-  
+
   // Fill the input box with the original claim
   inputText.value = analysis.originalClaim
   uploadedFile.value = null
   imagePreview.value = ''
-  
+
   // Navigate to the analysis URL (only if not already there)
   if (route.params.uuid !== analysis.id) {
     navigateToAnalysis(analysis.id)
   }
-  
+
   // Reset the flag after Vue's reactivity has processed
   nextTick(() => {
     isLoadingSavedAnalysis.value = false
   })
-  
+
   // Show notification
   notification.success({
     message: 'Analysis Loaded',
     description: `Loaded analysis from ${new Date(analysis.timestamp).toLocaleDateString()}`,
     duration: 3
   })
-  
+
   // Scroll to results
   nextTick(() => {
-    const resultsElement = document.querySelector('.results-container')
+    const resultsElement = document.querySelector('.results-content-area')
     if (resultsElement) {
       resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -102,9 +114,9 @@ function handleSelectSavedAnalysis(analysis) {
 const loadAnalysisFromUuid = (analysisUuid) => {
   console.log('Loading analysis from UUID:', analysisUuid)
   console.log('Available analyses:', savedAnalyses.value.map(a => ({ id: a.id, claim: a.originalClaim?.substring(0, 50) })))
-  
+
   if (!analysisUuid) return
-  
+
   const analysis = savedAnalyses.value.find(a => a.id === analysisUuid)
   if (analysis) {
     console.log('Found analysis:', analysis.originalClaim?.substring(0, 50))
@@ -152,13 +164,13 @@ watch(selectedMode, (newMode) => {
 }, { immediate: true })
 
 // Fact-check integration
-const { 
-  isLoading, 
-  sessionId, 
-  error, 
-  results, 
+const {
+  isLoading,
+  sessionId,
+  error,
+  results,
   originalClaim,
-  progress, 
+  progress,
   isConnected,
   usePolling,
   currentMode,
@@ -263,10 +275,10 @@ watch(selectedMode, (newMode, oldMode) => {
   const activeExamples = newMode === 'fact_check' ? examples.value : researchExamples.value
   currentExampleIndex.value = 0
   currentExample.value = activeExamples[0]
-  
+
   // Update the current mode for the progress component
   currentMode.value = newMode
-  
+
   // Only save and switch context if we're not currently loading a saved analysis or recovering a session
   if (!isLoadingSavedAnalysis.value && !isRecoveringSession.value) {
     // Save current state to the previous mode
@@ -274,7 +286,7 @@ watch(selectedMode, (newMode, oldMode) => {
       progressDataByMode.value[oldMode] = {
         results: results.value,
         originalClaim: originalClaim.value,
-        progress: progress.steps?.length > 0 ? { 
+        progress: progress.steps?.length > 0 ? {
           percentage: progress.percentage,
           currentStep: progress.currentStep,
           stepNumber: progress.stepNumber,
@@ -287,7 +299,7 @@ watch(selectedMode, (newMode, oldMode) => {
         hasResults: !!results.value
       }
     }
-    
+
     // Load state for the new mode
     const modeData = progressDataByMode.value[newMode]
     if (modeData.results || modeData.progress) {
@@ -342,16 +354,16 @@ onMounted(() => {
   console.log('HomeView mounted, route params:', route.params)
   console.log('UUID from props:', props.uuid)
   console.log('UUID from route:', route.params.uuid)
-  
+
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
   document.addEventListener('click', handleClickOutside);
-  
+
   // Initialize session persistence service
   sessionPersistenceService.initialize()
-  
+
   // Check for recoverable sessions
   checkForRecoverableSessions()
-  
+
   // Load analysis if UUID is present in the route
   if (uuid.value) {
     console.log('Loading analysis on mount for UUID:', uuid.value)
@@ -374,7 +386,7 @@ const handleFileUpload = (event) => {
   const file = event.target.files[0]
   if (file && file.type.startsWith('image/')) {
     uploadedFile.value = file
-    
+
     // Create image preview
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -387,7 +399,7 @@ const handleFileUpload = (event) => {
 const processImageFile = (file) => {
   if (file && file.type.startsWith('image/')) {
     uploadedFile.value = file
-    
+
     // Create image preview
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -410,7 +422,7 @@ const handleDragLeave = (e) => {
 const handleDrop = (e) => {
   e.preventDefault()
   isDragOver.value = false
-  
+
   const files = e.dataTransfer.files
   if (files.length > 0) {
     const file = files[0]
@@ -456,16 +468,16 @@ const handleSubmit = async () => {
       progress: null,
       hasResults: false
     }
-    
+
     progressCollapsed.value = false
-    
+
     // Navigate to home if we're currently on an analysis page
     if (route.params.uuid) {
       router.push('/')
     }
-    
+
     await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value)
-    
+
     // Scroll to progress
     await nextTick()
     if (analysisProgressRef.value && analysisProgressRef.value.$el) {
@@ -486,7 +498,7 @@ watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
   console.log('🔍 Original claim value:', newOriginalClaim)
   console.log('🔍 Original claim length:', newOriginalClaim?.length)
   console.log('🔍 Original claim truthy:', !!newOriginalClaim)
-  
+
   // Temporarily remove isLoadingSavedAnalysis condition to debug
   if (newResults && newOriginalClaim && !isLoading.value) {
     console.log('💾 Attempting to save analysis:', newOriginalClaim.substring(0, 50))
@@ -502,7 +514,7 @@ watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
         steps: [...progress.steps]
       })
       console.log('✅ Analysis saved successfully with ID:', analysisId)
-      
+
       // Navigate to the analysis URL if we're not already there and not on a specific UUID page
       if (!route.params.uuid) {
         console.log('Navigating to analysis URL:', analysisId)
@@ -528,10 +540,10 @@ const handleNewAnalysis = () => {
   inputText.value = ''
   uploadedFile.value = null
   imagePreview.value = ''
-  
+
   // Clear the mode data cache to prevent reloading old analyses
   clearAllModeData()
-  
+
   // Navigate to home if we're currently on an analysis page
   if (route.params.uuid) {
     router.push('/')
@@ -567,32 +579,32 @@ const handleRecoverSessionClick = async (sessionId) => {
     if (!sessionData) {
       throw new Error('Session data not found')
     }
-    
+
     // Set flag to prevent the mode watcher from clearing results
     isRecoveringSession.value = true
-    
+
     // Reset current state and recover session
     await recoverSession(sessionData)
-    
+
     // Update UI state
     selectedMode.value = sessionData.mode || 'fact_check'
     inputText.value = sessionData.originalClaim
     uploadedFile.value = null
     imagePreview.value = ''
-    
+
     // Navigate to home if we're currently on an analysis page
     if (route.params.uuid) {
       router.push('/')
     }
-    
+
     // Close recovery dialog
     closeRecoveryDialog()
-    
+
     // Reset the flag after Vue's reactivity has processed
     nextTick(() => {
       isRecoveringSession.value = false
     })
-    
+
     // Scroll to progress if still loading
     if (isLoading.value) {
       await nextTick()
@@ -601,7 +613,7 @@ const handleRecoverSessionClick = async (sessionId) => {
         progressElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
     }
-    
+
   } catch (error) {
     console.error('Failed to recover session:', error)
     // Error is already handled in the recovery composable
@@ -632,9 +644,9 @@ const clearAllModeData = () => {
     <Header class="header">
       <div class="header-content">
         <div class="logo-section" @click="handleLogoClick">
-          <img 
-            src="../assets/itlookslegitTrans.png" 
-            alt="Logo" 
+          <img
+            src="../assets/itlookslegitTrans.png"
+            alt="Logo"
             class="logo-image"
             style="height: 56px; width: auto; margin-right: 8px;"
           />
@@ -645,9 +657,9 @@ const clearAllModeData = () => {
              <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
              <LanguageSelector />
           </div>
-          <Button 
-            class="mobile-menu-button" 
-            @click="toggleMobileMenu" 
+          <Button
+            class="mobile-menu-button"
+            @click="toggleMobileMenu"
             :class="{ 'is-active': isMobileMenuOpen }"
           >
             ☰
@@ -671,12 +683,12 @@ const clearAllModeData = () => {
             {{ selectedMode === 'fact_check' ? t('app.subtitle') : t('app.researchSubtitle') }}
           </Paragraph>
         </div>
-        
+
         <ModeSelector v-model:mode="selectedMode" />
-        
+
         <div class="input-section">
           <Space direction="vertical" size="large" class="input-container">
-            <div 
+            <div
               class="input-wrapper"
               :class="{ 'drag-over': isDragOver }"
               @dragover="handleDragOver"
@@ -699,7 +711,7 @@ const clearAllModeData = () => {
                   @change="handleFileUpload"
                   style="display: none;"
                 />
-                <Button 
+                <Button
                   class="upload-button"
                   @click="triggerFileUpload"
                   size="small"
@@ -707,19 +719,19 @@ const clearAllModeData = () => {
                   📷 {{ t('app.uploadButton') }}
                 </Button>
               </div>
-              
+
               <div v-if="isDragOver" class="drag-overlay">
                 <div class="drag-message">
                   📷 Drop your image here
                 </div>
               </div>
-              
+
               <div v-if="imagePreview" class="image-preview">
                 <div class="preview-header">
                   <span class="preview-title">Uploaded Image:</span>
-                  <Button 
-                    class="remove-button" 
-                    size="small" 
+                  <Button
+                    class="remove-button"
+                    size="small"
                     @click="removeImage"
                   >
                     ✕
@@ -728,10 +740,10 @@ const clearAllModeData = () => {
                 <img :src="imagePreview" alt="Uploaded preview" class="preview-image" />
               </div>
             </div>
-            
-            <Button 
-              type="primary" 
-              size="large" 
+
+            <Button
+              type="primary"
+              size="large"
               class="submit-button"
               :loading="isLoading"
               :disabled="!inputText.trim() && !uploadedFile"
@@ -739,10 +751,10 @@ const clearAllModeData = () => {
             >
               {{ isLoading ? t('app.analyzing') : (selectedMode === 'fact_check' ? t('app.factCheck') : t('app.research')) }}
             </Button>
-            
-            <Button 
+
+            <Button
               v-if="isLoading"
-              size="large" 
+              size="large"
               class="cancel-button"
               @click="cancelFactCheck"
             >
@@ -750,14 +762,14 @@ const clearAllModeData = () => {
             </Button>
           </Space>
         </div>
-        
+
         <div ref="analysisProgressRef">
-          <NotificationPermissionBanner 
+          <NotificationPermissionBanner
             :mode="selectedMode"
             :isLoading="isLoading"
           />
-          
-          <AnalysisProgress 
+
+          <AnalysisProgress
             :isLoading="isLoading"
             :progress="progress"
             :isConnected="isConnected"
@@ -768,56 +780,64 @@ const clearAllModeData = () => {
             @update:collapsed="progressCollapsed = $event"
           />
         </div>
-        
-        <div v-if="results" class="results-container">
-          <FactCheckResults 
+      </div>
+
+      <div v-if="results" class="results-layout-wrapper" :class="{ 'has-toc': showToc }">
+        <div v-if="showToc" class="toc-wrapper" :class="{ 'is-collapsed': isTocCollapsed }">
+          <TableOfContents
+            :headings="tocHeadings"
+            :visible="showToc"
+            @update:collapsed="isTocCollapsed = $event"
+          />
+        </div>
+        <div class="results-content-area">
+          <FactCheckResults
             v-if="selectedMode === 'fact_check'"
             :results="results"
             :originalClaim="originalClaim"
             :uploadedImage="imagePreview"
           />
-          <ResearchResults 
+          <ResearchResults
             v-else
             :results="results"
             :originalClaim="originalClaim"
+            @headings-extracted="handleHeadingsExtracted"
           />
+          <div class="new-analysis-section">
+            <Button
+              type="default"
+              size="large"
+              class="new-analysis-button"
+              @click="handleNewAnalysis"
+            >
+              {{ selectedMode === 'fact_check' ? 'Start New Analysis' : 'Start New Research' }}
+            </Button>
+          </div>
         </div>
-        <div v-if="results" class="new-analysis-section">
-          <Button 
-            type="default"
-            size="large"
-            class="new-analysis-button"
-            @click="handleNewAnalysis"
-          >
-            {{ selectedMode === 'fact_check' ? 'Start New Analysis' : 'Start New Research' }}
-          </Button>
-        </div>
-        
-        <div v-if="!isLoading && !results" class="examples-section">
+      </div>
+
+      <div v-if="!isLoading && !results" class="main-container">
+        <div class="examples-section">
           <Paragraph class="examples-title">{{ t('app.exampleTitle') }}</Paragraph>
-          <!-- Debug test button 
-          <Button @click="testSave" style="margin-bottom: 16px; background: #ff6b6b; border-color: #ff6b6b; color: white;">
-            🧪 Test Save (Debug)
-          </Button>
-          -->
           <div class="rotating-example">
-            <div 
-              class="example-card rotating" 
+            <div
+              class="example-card rotating"
               @click="selectExample(currentExample)"
             >
               <div class="example-text">{{ currentExample }}</div>
             </div>
           </div>
         </div>
-        
-        <div v-if="!isLoading && !results" class="info-section">
+
+        <div class="info-section">
           <Paragraph class="info-text">
             {{ t('app.infoText') }}
           </Paragraph>
         </div>
       </div>
+
     </Content>
-    
+
     <footer class="main-footer">
       <div class="footer-content">
         <div class="footer-section footer-links">
@@ -828,7 +848,7 @@ const clearAllModeData = () => {
             <li><a href="#" class="footer-link">Singularity Academy</a></li>
           </ul>
         </div>
-        
+
         <div class="footer-section footer-contributors">
           <h4 class="footer-title">Contributors</h4>
           <ul class="footer-list">
@@ -838,7 +858,7 @@ const clearAllModeData = () => {
           </ul>
         </div>
       </div>
-      
+
       <div class="footer-bottom">
         <p class="footer-copyright">
           © 2025 {{ t('app.website') }}.
@@ -949,12 +969,41 @@ const clearAllModeData = () => {
 .main-container {
   max-width: 700px;
   margin: 0 auto;
-  padding: 60px 24px 40px;
+  padding: 60px 24px 0;
   text-align: center;
 }
-.results-container {
-  margin-top: 32px;
+/* Reduce top padding for subsequent containers */
+.main-container:not(:first-child) {
+    padding-top: 0;
 }
+
+.results-layout-wrapper {
+    width: 100%;
+    display: grid;
+    /* Centered report column by default */
+    grid-template-columns: [full-start] 1fr [main-start] minmax(0, 700px) [main-end] 1fr [full-end];
+    grid-template-areas: ". report .";
+    margin-top: 32px;
+    padding: 0 24px;
+    box-sizing: border-box;
+}
+.results-layout-wrapper.has-toc {
+    grid-template-columns: 1fr minmax(0, 700px) 1fr;
+    grid-template-areas: "left-gutter report right-gutter";
+    gap: 40px;
+}
+
+.toc-wrapper {
+    grid-area: left-gutter;
+    justify-self: end;
+}
+
+.results-content-area {
+    grid-area: report;
+    min-width: 0; /* Prevents grid blowout */
+    text-align: left;
+}
+
 
 .hero-section {
   margin-bottom: 40px;
@@ -1337,35 +1386,83 @@ const clearAllModeData = () => {
   transform: translateY(-10px);
 }
 
+@media (max-width: 1200px) {
+    .results-layout-wrapper.has-toc {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "left-gutter"
+            "report";
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+        gap: 0;
+    }
+    .toc-wrapper {
+        /* Make the whole TOC section sticky on mobile */
+        position: sticky;
+        top: 80px; /* Sticking point for tablets */
+        z-index: 90;
+
+        /* Visuals for floating state with enhanced transparency and blur */
+        background: rgba(255, 255, 255, 0.5); /* More transparent background */
+        backdrop-filter: blur(8px) saturate(1.2);
+        -webkit-backdrop-filter: blur(8px) saturate(1.2); /* For Safari */
+
+        /* Layout adjustments for full-width sticky bar */
+        justify-self: stretch;
+        margin: 0 -24px; /* Counteract parent padding to go full-width */
+        padding: 0 24px; /* Add padding back inside */
+
+
+
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .toc-wrapper.is-collapsed {
+        background-color: rgba(248, 249, 250, 0.7);
+
+        /* Gradient mask for fade-out effect at bottom */
+
+        mask: linear-gradient(to bottom, white 80%, transparent 100%);
+        -webkit-mask: linear-gradient(to bottom, white 80%, transparent 100%);
+    }
+}
+
+@media (max-width: 768px) {
+    .toc-wrapper {
+        top: 70px; /* Adjust for smaller header on phones */
+    }
+}
+
 @media (max-width: 768px) {
   .header {
     height: 70px;
   }
-  
+
   .header-content {
     padding: 0 16px;
     gap: 8px;
   }
-  
+
   .logo-section {
     margin-left: -4px;
     padding: 4px;
     min-width: 0;
     flex: 1;
   }
-  
+
   .logo-image {
     height: 40px !important;
     margin-right: 6px !important;
   }
-  
+
   .logo-text {
     font-size: 20px !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .header-actions {
     gap: 0;
     flex-shrink: 0;
@@ -1374,7 +1471,7 @@ const clearAllModeData = () => {
   .header-menu-items-wrapper-desktop {
     display: none;
   }
-  
+
   .mobile-menu-button {
     display: block;
     background: transparent !important;
@@ -1385,7 +1482,7 @@ const clearAllModeData = () => {
     line-height: 1 !important;
     transition: transform 0.3s ease-in-out;
   }
-  
+
   .mobile-menu-button.is-active {
     transform: rotate(90deg);
   }
@@ -1406,68 +1503,72 @@ const clearAllModeData = () => {
     z-index: 120;
     width: 220px;
   }
-  
+
   .main-title {
     font-size: 36px !important;
   }
-  
+
   .subtitle {
     font-size: 18px !important;
   }
-  
+
   .main-container {
     padding: 40px 16px;
+    padding-bottom: 0;
   }
-  
+   .results-layout-wrapper {
+        padding: 0 16px;
+    }
+
   .examples-title {
     font-size: 13px !important;
   }
-  
+
   .example-card.rotating {
     padding: 10px 14px;
   }
-  
+
   .example-text {
     font-size: 12px !important;
   }
-  
+
   .input-controls {
     bottom: 8px;
     right: 8px;
   }
-  
+
   .upload-button {
     font-size: 11px !important;
     height: 28px !important;
   }
-  
+
   .preview-image {
     max-height: 150px;
   }
-  
+
   .drag-message {
     font-size: 16px !important;
     padding: 12px 20px;
   }
-  
+
   .input-wrapper.drag-over {
     transform: scale(1.01);
   }
-  
+
   .footer-content {
     flex-direction: column;
     gap: 30px;
     padding: 0 16px;
   }
-  
+
   .footer-links,
   .footer-contributors {
     text-align: center;
   }
-  
+
   .main-footer {
     margin-top: 40px;
     padding: 30px 0 16px;
   }
 }
-</style>r
+</style>

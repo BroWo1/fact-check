@@ -704,6 +704,7 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   font-family: 'DM Sans', 'LXGW WenKai', serif;
   font-size: 16px;
   font-weight: 600;
+  text-align: center;
 }
 
 .source-title a {

@@ -12,9 +12,15 @@
     "research": "Research",
     "exampleTitle": "Example to try:",
     "infoText": "Our AI analyzes claims against reliable sources and provides detailed verification reports",
-    "uploadButton": "Upload Image"
+    "uploadButton": "Upload Image",
+    "onThisPage": "ON THIS PAGE",
+    "style": "Style",
+    "concise": "Concise",
+    "professional": "Professional",
+    "informational": "Informational"
   },
   "results": {
+    "verdict": "Verdict",
     "claimAnalyzed": "Claim Analyzed",
     "analysis": "Analysis",
     "citations": "Citations",
@@ -27,6 +33,7 @@
     "downloadImage": "📥 Download Image",
     "copyToClipboard": "📋 Copy to Clipboard",
     "shareResults": "Share Results",
+    "shareAsImage": "Share as Image",
     "copyImageFailed": "Failed to copy to clipboard. Your browser may not support this feature.",
     "copyImageSuccess": "Image copied to clipboard!"
   },

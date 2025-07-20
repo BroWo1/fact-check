@@ -454,7 +454,7 @@ export function useFactCheck() {
     isConnected.value = false
   }
 
-  const startFactCheck = async (userInput, uploadedFile = null, mode = 'fact_check') => {
+  const startFactCheck = async (userInput, uploadedFile = null, mode = 'fact_check', style = 'professional') => {
     try {
       resetState()
       currentMode.value = mode // Set the current mode
@@ -467,7 +467,7 @@ export function useFactCheck() {
       progress.expectedSteps = mode === 'research' ? 4 : 4 // Both modes have 4 steps
 
       // Create fact-check session
-      const response = await factCheckService.createSession(userInput, uploadedFile, mode)
+      const response = await factCheckService.createSession(userInput, uploadedFile, mode, style)
       sessionId.value = response.session_id
       
       // Cache the session data

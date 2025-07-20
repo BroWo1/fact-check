@@ -10,7 +10,7 @@
   -->
 
     <!-- Verdict Section -->
-    <div class="verdict-section">
+    <div id="verdict-section" class="verdict-section" style="scroll-margin-top: 80px;">
       <div class="verdict-header">
         <div class="verdict-icon">{{ getVerdictIcon(results.verdict) }}</div>
         <div class="verdict-content">
@@ -22,25 +22,25 @@
           </div>
         </div>
       </div>
-      
+
       <div class="verdict-summary" v-if="results.summary">
         <p>{{ results.summary }}</p>
       </div>
     </div>
 
     <!-- Analysis Details -->
-    <div class="analysis-details" v-if="results.reasoning">
+    <div id="analysis-details" class="analysis-details" v-if="results.reasoning" style="scroll-margin-top: 80px;">
       <h3 class="section-title">{{ t('results.analysis') }}</h3>
       <div class="reasoning-text" v-html="formatReasoningWithCitations(results.reasoning)">
       </div>
     </div>
 
     <!-- Citations Section -->
-    <div class="citations-section" v-if="extractCitations(results.reasoning).length > 0">
+    <div id="citations-section" class="citations-section" v-if="extractCitations(results.reasoning).length > 0" style="scroll-margin-top: 80px;">
       <h3 class="section-title">{{ t('results.citations') }}</h3>
       <div class="citations-list">
-        <div 
-          v-for="(citation, index) in extractCitations(results.reasoning)" 
+        <div
+          v-for="(citation, index) in extractCitations(results.reasoning)"
           :key="index"
           :id="`citation-${citation.number}`"
           class="citation-item"
@@ -57,11 +57,11 @@
     </div>
 
     <!-- Evidence Section -->
-    <div class="evidence-section" v-if="results.key_evidence || results.supporting_evidence || results.contradictory_evidence">
+    <div id="evidence-section" class="evidence-section" v-if="results.key_evidence || results.supporting_evidence || results.contradictory_evidence" style="scroll-margin-top: 80px;">
       <h3 class="section-title">{{ t('results.evidence') }}</h3>
-      
+
       <!-- Key Evidence -->
-      <div class="evidence-group" v-if="results.key_evidence && results.key_evidence.length > 0">
+      <div id="key-evidence" class="evidence-group" v-if="results.key_evidence && results.key_evidence.length > 0" style="scroll-margin-top: 80px;">
         <h4 class="evidence-title">{{ t('results.keyFindings') }}</h4>
         <ul class="evidence-list">
           <li v-for="evidence in results.key_evidence" :key="evidence" class="evidence-item key">
@@ -72,7 +72,7 @@
       </div>
 
       <!-- Supporting Evidence -->
-      <div class="evidence-group" v-if="results.supporting_evidence && results.supporting_evidence.length > 0">
+      <div id="supporting-evidence" class="evidence-group" v-if="results.supporting_evidence && results.supporting_evidence.length > 0" style="scroll-margin-top: 80px;">
         <h4 class="evidence-title">{{ t('results.supportingEvidence') }}</h4>
         <ul class="evidence-list">
           <li v-for="evidence in results.supporting_evidence" :key="evidence" class="evidence-item supporting">
@@ -83,7 +83,7 @@
       </div>
 
       <!-- Contradictory Evidence -->
-      <div class="evidence-group" v-if="results.contradictory_evidence && results.contradictory_evidence.length > 0">
+      <div id="contradictory-evidence" class="evidence-group" v-if="results.contradictory_evidence && results.contradictory_evidence.length > 0" style="scroll-margin-top: 80px;">
         <h4 class="evidence-title">{{ t('results.contradictoryEvidence') }}</h4>
         <ul class="evidence-list">
           <li v-for="evidence in results.contradictory_evidence" :key="evidence" class="evidence-item contradictory">
@@ -98,8 +98,8 @@
     <div class="sources-section" v-if="results.sources && results.sources.length > 0">
       <h3 class="section-title">Sources Checked</h3>
       <div class="sources-list">
-        <div 
-          v-for="source in results.sources" 
+        <div
+          v-for="source in results.sources"
           :key="source.id || source.url"
           class="source-item"
           :class="{ 'supports-claim': source.supports_claim === true, 'contradicts-claim': source.supports_claim === false }"
@@ -117,19 +117,19 @@
               </span>
             </div>
           </div>
-          
+
           <div class="source-indicators">
             <div class="relevance-indicator" v-if="source.relevance_score">
               <span class="indicator-label">Relevance:</span>
               <div class="indicator-bar">
-                <div 
-                  class="indicator-fill relevance" 
+                <div
+                  class="indicator-fill relevance"
                   :style="{ width: `${source.relevance_score * 100}%` }"
                 ></div>
               </div>
               <span class="indicator-value">{{ Math.round(source.relevance_score * 100) }}%</span>
             </div>
-            
+
             <div class="support-indicator" v-if="source.supports_claim !== undefined">
               <span class="support-badge" :class="{ 'supports': source.supports_claim, 'contradicts': !source.supports_claim }">
                 {{ source.supports_claim ? 'Supports claim' : 'Contradicts claim' }}
@@ -142,8 +142,8 @@
     -->
 
     <!-- Limitations -->
-    <div class="limitations-section" v-if="results.limitations && results.limitations.length > 0">
-      <h3 class="section-title">Limitations</h3>
+    <div id="limitations-section" class="limitations-section" v-if="results.limitations && results.limitations.length > 0" style="scroll-margin-top: 80px;">
+      <h3 class="section-title">{{ t('research.limitations') }}</h3>
       <ul class="limitations-list">
         <li v-for="limitation in results.limitations" :key="limitation" class="limitation-item">
           <span class="limitation-icon">⚠️</span>
@@ -154,7 +154,7 @@
 
     <!-- Recommendations -->
     <div class="recommendations-section" v-if="results.recommendations && results.recommendations.length > 0">
-      <h3 class="section-title">Recommendations</h3>
+      <h3 class="section-title">{{ t('research.recommendations') }}</h3>
       <ul class="recommendations-list">
         <li v-for="recommendation in results.recommendations" :key="recommendation" class="recommendation-item">
           <span class="recommendation-icon">💡</span>
@@ -176,9 +176,9 @@
     </div>
 
     <!-- Share Section -->
-    <div class="share-section">
+    <div id="share-section" class="share-section" style="scroll-margin-top: 80px;">
       <button class="share-button" @click="generatePreview">
-        📸 Share as Image
+        📸 {{ t('results.shareAsImage') }}
       </button>
     </div>
 
@@ -213,11 +213,11 @@
           <strong>Total Sources:</strong> {{ citationDebugInfo.totalSources }}
         </div>
         <div class="debug-item">
-          <strong>Citation References:</strong> {{ citationDebugInfo.citationReferences }} 
+          <strong>Citation References:</strong> {{ citationDebugInfo.citationReferences }}
           ({{ citationDebugInfo.uniqueCitationReferences }} unique)
         </div>
         <div class="debug-item">
-          <strong>URL References:</strong> {{ citationDebugInfo.urlReferences }} 
+          <strong>URL References:</strong> {{ citationDebugInfo.urlReferences }}
           ({{ citationDebugInfo.uniqueUrlReferences }} unique)
         </div>
         <div class="debug-item">
@@ -243,7 +243,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, computed } from 'vue'
+import { ref, nextTick, computed, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 
@@ -263,6 +263,109 @@ let currentImageBlob = null
 
 // Development environment check
 const isDevelopment = ref(import.meta.env.DEV)
+
+// Define emits for headings extraction
+const emit = defineEmits(['headings-extracted'])
+
+// Computed property for static TOC headings
+const tocHeadings = computed(() => {
+  if (!props.results) return []
+  
+  const headings = []
+  
+  // Verdict Section
+  headings.push({
+    id: 'verdict-section',
+    text: t('results.verdict'),
+    level: 2
+  })
+  
+  // Analysis Details
+  if (props.results.reasoning) {
+    headings.push({
+      id: 'analysis-details',
+      text: t('results.analysis'),
+      level: 2
+    })
+  }
+  
+  // Citations Section
+  if (extractCitations(props.results.reasoning).length > 0) {
+    headings.push({
+      id: 'citations-section',
+      text: t('results.citations'),
+      level: 2
+    })
+  }
+  
+  // Evidence Section
+  if (props.results.key_evidence || props.results.supporting_evidence || props.results.contradictory_evidence) {
+    headings.push({
+      id: 'evidence-section',
+      text: t('results.evidence'),
+      level: 2
+    })
+    
+    // Key Findings subsection
+    if (props.results.key_evidence && props.results.key_evidence.length > 0) {
+      headings.push({
+        id: 'key-evidence',
+        text: t('results.keyFindings'),
+        level: 3
+      })
+    }
+    
+    // Supporting Evidence subsection
+    if (props.results.supporting_evidence && props.results.supporting_evidence.length > 0) {
+      headings.push({
+        id: 'supporting-evidence',
+        text: t('results.supportingEvidence'),
+        level: 3
+      })
+    }
+    
+    // Contradictory Evidence subsection
+    if (props.results.contradictory_evidence && props.results.contradictory_evidence.length > 0) {
+      headings.push({
+        id: 'contradictory-evidence',
+        text: t('results.contradictoryEvidence'),
+        level: 3
+      })
+    }
+  }
+  
+  // Limitations Section
+  if (props.results.limitations && props.results.limitations.length > 0) {
+    headings.push({
+      id: 'limitations-section',
+      text: t('research.limitations'),
+      level: 2
+    })
+  }
+  
+  // Share Section
+  headings.push({
+    id: 'share-section',
+    text: t('results.shareResults'),
+    level: 2
+  })
+  
+  return headings
+})
+
+// Function to emit headings when results change
+const emitHeadings = () => {
+  nextTick(() => {
+    emit('headings-extracted', tocHeadings.value)
+  })
+}
+
+// Watch for results changes and emit headings
+watchEffect(() => {
+  if (props.results) {
+    emitHeadings()
+  }
+})
 
 // Development-only logging helper
 const devLog = (message, ...args) => {
@@ -330,18 +433,18 @@ const extractPublisherFromUrl = (url) => {
 // Function to format evidence text with citation buttons
 const formatEvidenceWithCitations = (evidenceText) => {
   if (!evidenceText) return ''
-  
+
   // Regex to match markdown-style links in the format ([text](url))
   const markdownLinkRegex = /\(\[([^\]]+)\]\(([^)]+)\)\)/g
-  
+
   let formattedText = evidenceText
-  
+
   // Replace markdown links with citation buttons
   formattedText = formattedText.replace(markdownLinkRegex, (match, linkText, url) => {
     try {
       const publisherName = extractPublisherFromUrl(url)
-      return ` <button 
-        class="citation-button" 
+      return ` <button
+        class="citation-button"
         onclick="window.open('${url}', '_blank', 'noopener,noreferrer')"
         title="View source: ${linkText}"
       >
@@ -349,8 +452,8 @@ const formatEvidenceWithCitations = (evidenceText) => {
       </button>`
     } catch (error) {
       // Fallback to original text if URL parsing fails
-      return ` <button 
-        class="citation-button" 
+      return ` <button
+        class="citation-button"
         onclick="window.open('${url}', '_blank', 'noopener,noreferrer')"
         title="View source: ${linkText}"
       >
@@ -358,22 +461,22 @@ const formatEvidenceWithCitations = (evidenceText) => {
       </button>`
     }
   })
-  
+
   // Also handle regular markdown links [text](url) without parentheses
   const regularMarkdownRegex = /\[([^\]]+)\]\(([^)]+)\)/g
   formattedText = formattedText.replace(regularMarkdownRegex, (match, linkText, url) => {
     try {
       const publisherName = extractPublisherFromUrl(url)
-      return ` <button 
-        class="citation-button" 
+      return ` <button
+        class="citation-button"
         onclick="window.open('${url}', '_blank', 'noopener,noreferrer')"
         title="View source: ${linkText}"
       >
         📄 ${publisherName}
       </button>`
     } catch (error) {
-      return ` <button 
-        class="citation-button" 
+      return ` <button
+        class="citation-button"
         onclick="window.open('${url}', '_blank', 'noopener,noreferrer')"
         title="View source: ${linkText}"
       >
@@ -381,18 +484,18 @@ const formatEvidenceWithCitations = (evidenceText) => {
       </button>`
     }
   })
-  
+
   return formattedText
 }
 
 // Function to extract citations from reasoning text
 const extractCitations = (reasoningText) => {
   if (!reasoningText) return []
-  
+
   const citations = []
   const deduplicator = useCitationDeduplicator()
   deduplicator.reset()
-  
+
   // Helper function to add citation if not duplicate
   const addCitation = (citation) => {
     if (!deduplicator.isDuplicate(citation.url, citation.title)) {
@@ -402,12 +505,12 @@ const extractCitations = (reasoningText) => {
     }
     return false
   }
-  
+
   // Extract citations in format [1], [2], etc. and match with sources if available
   const citationMatches = reasoningText.match(/\[(\d+)\]/g)
   if (citationMatches && props.results?.sources) {
     const uniqueNumbers = [...new Set(citationMatches.map(match => parseInt(match.replace(/[\[\]]/g, ''))))]
-    
+
     uniqueNumbers.forEach(citationNumber => {
       const source = props.results.sources[citationNumber - 1]
       if (source && source.url) {
@@ -425,7 +528,7 @@ const extractCitations = (reasoningText) => {
       }
     })
   }
-  
+
   // Always extract direct URL citations from the text
   const urlMatches = reasoningText.match(/https?:\/\/[^\s\)\],]+/g)
   if (urlMatches) {
@@ -444,7 +547,7 @@ const extractCitations = (reasoningText) => {
       }
     })
   }
-  
+
   // If no citations found but we have sources, create basic citations
   if (citations.length === 0 && props.results?.sources && props.results.sources.length > 0) {
     props.results.sources.forEach((source, index) => {
@@ -463,7 +566,7 @@ const extractCitations = (reasoningText) => {
       }
     })
   }
-  
+
   // Re-number citations to ensure sequential numbering
   const finalCitations = citations
     .sort((a, b) => a.number - b.number)
@@ -471,38 +574,38 @@ const extractCitations = (reasoningText) => {
       ...citation,
       number: index + 1
     }))
-  
+
   return finalCitations
 }
 
 // Function to format reasoning text with clickable citations
 const formatReasoningWithCitations = (reasoningText) => {
   if (!reasoningText) return ''
-  
+
   let formattedText = reasoningText
   const extractedCitations = extractCitations(reasoningText)
-  
+
   // Create a mapping of original citation numbers to new sequential numbers
   const citationMapping = new Map()
   extractedCitations.forEach((citation, index) => {
     citationMapping.set(citation.number, index + 1)
   })
-  
+
   // Replace citation numbers [1], [2], etc. with clickable links using the new numbering
   formattedText = formattedText.replace(/\[(\d+)\]/g, (match, number) => {
     const newNumber = citationMapping.get(parseInt(number)) || number
     return `<a href="#citation-${newNumber}" class="citation-link-inline" title="View citation ${newNumber}">${match}</a>`
   })
-  
+
   // Replace URLs with clickable links (but preserve them for citation extraction)
   formattedText = formattedText.replace(/(https?:\/\/[^\s\)\],]+)/g, (url) => {
     try {
       const domain = new URL(url).hostname
       // Check if this URL is already in our citations to avoid redundancy
-      const isInCitations = extractedCitations.some(citation => 
+      const isInCitations = extractedCitations.some(citation =>
         citation.url === url || new URL(citation.url).hostname === domain
       )
-      
+
       if (isInCitations) {
         // If URL is already in citations, just show domain name without link
         return `<span class="referenced-domain" title="Referenced in citations">${domain}</span>`
@@ -513,15 +616,15 @@ const formatReasoningWithCitations = (reasoningText) => {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link">${url}</a>`
     }
   })
-  
+
   // Highlight parenthetical citations
   formattedText = formattedText.replace(/\([^)]*(?:Source|BBC|CNN|Reuters|AP|NPR|Guardian|Times|Post|Journal)[^)]*\)/gi, (match) => {
     return `<span class="parenthetical-citation" title="Citation reference">${match}</span>`
   })
-  
+
   // Add line breaks for better readability
   formattedText = formattedText.replace(/\n/g, '<br>')
-  
+
   return formattedText
 }
 
@@ -530,10 +633,10 @@ const generatePreview = async () => {
   try {
     // Show modal first so canvas is rendered
     showPreview.value = true
-    
+
     // Wait for next tick to ensure canvas is rendered
     await nextTick()
-    
+
     // Now create the image
     await createShareImage()
   } catch (error) {
@@ -555,28 +658,28 @@ const createShareImage = async () => {
   if (!canvas) {
     throw new Error('Canvas not available')
   }
-  
+
   const ctx = canvas.getContext('2d')
   if (!ctx) {
     throw new Error('Canvas context not available')
   }
-  
+
   // Set canvas size (much larger for better content)
   canvas.width = 1200
   canvas.height = 1600
-  
+
   // Set background with subtle gradient
   const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
   backgroundGradient.addColorStop(0, '#ffffff')
   backgroundGradient.addColorStop(1, '#f8f9fa')
   ctx.fillStyle = backgroundGradient
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  
+
   // Add subtle border
   ctx.strokeStyle = '#e0e0e0'
   ctx.lineWidth = 3
   ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
-  
+
   // Enhanced fonts for better readability
   const brandFont = 'bold 32px serif'
   const titleFont = 'bold 48px serif'
@@ -584,14 +687,14 @@ const createShareImage = async () => {
   const bodyFont = '28px serif'
   const smallFont = '24px serif'
   const tinyFont = '20px serif'
-  
+
   let currentY = 80
-  
+
   // Load and add logo
   try {
     const logoImg = new Image()
     logoImg.crossOrigin = 'anonymous'
-    
+
     // Multiple logo path strategies for production compatibility
     const logoSources = [
       '/logo.png',  // Public folder (production) - highest priority
@@ -600,19 +703,19 @@ const createShareImage = async () => {
       window.location.origin + '/assets/logo.png',  // Absolute URL with assets
       '/src/assets/logo.png'  // Source assets (dev only)
     ]
-    
+
     let logoLoaded = false
-    
+
     for (const logoSrc of logoSources) {
       if (logoLoaded) break
-      
+
       try {
         await new Promise((resolve, reject) => {
           // Set a timeout for image loading
           const timeout = setTimeout(() => {
             reject(new Error('Logo loading timeout'))
           }, 5000)
-          
+
           logoImg.onload = () => {
             clearTimeout(timeout)
             logoLoaded = true
@@ -625,7 +728,7 @@ const createShareImage = async () => {
           }
           logoImg.src = logoSrc
         })
-        
+
         if (logoLoaded) {
           // Draw logo (centered, reasonable size)
           const logoSize = 80
@@ -639,19 +742,19 @@ const createShareImage = async () => {
         continue
       }
     }
-    
+
     // If no logo loaded, draw fallback
     if (!logoLoaded) {
       throw new Error('All logo sources failed')
     }
-    
+
   } catch (error) {
     devWarn('Could not load logo, using fallback:', error)
     // Fallback: draw a branded text logo with better styling
     ctx.fillStyle = '#000000'
     ctx.font = 'bold 36px serif'
     ctx.textAlign = 'center'
-    
+
     // Draw a simple logo background circle
     ctx.beginPath()
     ctx.arc(canvas.width / 2, currentY + 40, 40, 0, 2 * Math.PI)
@@ -660,36 +763,36 @@ const createShareImage = async () => {
     ctx.strokeStyle = '#000000'
     ctx.lineWidth = 2
     ctx.stroke()
-    
+
     // Draw the emoji/icon
     ctx.fillStyle = '#000000'
     ctx.fillText('📊', canvas.width / 2, currentY + 50)
     currentY += 100
   }
-  
+
   // Add branding text
   ctx.font = brandFont
   ctx.fillStyle = '#000000'
   ctx.textAlign = 'center'
   ctx.fillText('itLooksLegit.com', canvas.width / 2, currentY)
-  
+
   currentY += 60
-  
+
   // Add title
   ctx.font = titleFont
   ctx.fillStyle = '#000000'
   ctx.textAlign = 'center'
   ctx.fillText('Fact-Check Analysis', canvas.width / 2, currentY)
-  
+
   currentY += 100
-  
+
   // Add claim section
   ctx.font = smallFont
   ctx.fillStyle = '#666666'
   ctx.textAlign = 'left'
   ctx.fillText('Claim:', 80, currentY)
   currentY += 45
-  
+
   // Add claim text with better wrapping
   ctx.font = bodyFont
   ctx.fillStyle = '#333333'
@@ -704,18 +807,18 @@ const createShareImage = async () => {
     ctx.fillText('...', 80, currentY)
     currentY += 35
   }
-  
+
   currentY += 40
-  
+
   // Add uploaded image thumbnail if available
   if (props.uploadedImage) {
     try {
       const uploadedImg = new Image()
       uploadedImg.crossOrigin = 'anonymous'
-      
+
       // Handle different image source formats
       let imageSrc = props.uploadedImage
-      
+
       // If it's a data URL, use it directly
       if (imageSrc.startsWith('data:')) {
         uploadedImg.src = imageSrc
@@ -729,19 +832,19 @@ const createShareImage = async () => {
           window.location.origin + imageSrc,
           imageSrc.startsWith('/') ? imageSrc : '/' + imageSrc
         ]
-        
+
         let imageLoaded = false
-        
+
         for (const imgSrc of imageSources) {
           if (imageLoaded) break
-          
+
           try {
             await new Promise((resolve, reject) => {
               // Set a timeout for image loading
               const timeout = setTimeout(() => {
                 reject(new Error('Image loading timeout'))
               }, 5000)
-              
+
               uploadedImg.onload = () => {
                 clearTimeout(timeout)
                 imageLoaded = true
@@ -760,19 +863,19 @@ const createShareImage = async () => {
             continue
           }
         }
-        
+
         if (!imageLoaded) {
           throw new Error('All image sources failed')
         }
       }
-      
+
       // Wait for image to load if not already loaded
       if (!uploadedImg.complete) {
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Image loading timeout'))
           }, 5000)
-          
+
           uploadedImg.onload = () => {
             clearTimeout(timeout)
             resolve()
@@ -783,13 +886,13 @@ const createShareImage = async () => {
           }
         })
       }
-      
+
       // Calculate thumbnail size (maintain aspect ratio)
       const maxThumbnailWidth = 300
       const maxThumbnailHeight = 200
       let thumbnailWidth = uploadedImg.width
       let thumbnailHeight = uploadedImg.height
-      
+
       // Scale down if too large
       if (thumbnailWidth > maxThumbnailWidth || thumbnailHeight > maxThumbnailHeight) {
         const scaleX = maxThumbnailWidth / thumbnailWidth
@@ -798,26 +901,26 @@ const createShareImage = async () => {
         thumbnailWidth = thumbnailWidth * scale
         thumbnailHeight = thumbnailHeight * scale
       }
-      
+
       // Center the thumbnail
       const thumbnailX = (canvas.width - thumbnailWidth) / 2
-      
+
       // Add thumbnail label
       ctx.font = tinyFont
       ctx.fillStyle = '#666666'
       ctx.textAlign = 'center'
       ctx.fillText('Uploaded Image:', canvas.width / 2, currentY)
       currentY += 35
-      
+
       // Add border around thumbnail
       ctx.strokeStyle = '#ddd'
       ctx.lineWidth = 2
       ctx.strokeRect(thumbnailX - 2, currentY - 2, thumbnailWidth + 4, thumbnailHeight + 4)
-      
+
       // Draw thumbnail
       ctx.drawImage(uploadedImg, thumbnailX, currentY, thumbnailWidth, thumbnailHeight)
       currentY += thumbnailHeight + 50
-      
+
     } catch (error) {
       devWarn('Could not load uploaded image:', error)
       // Fallback: show placeholder
@@ -828,42 +931,42 @@ const createShareImage = async () => {
       currentY += 50
     }
   }
-  
+
   // Add verdict section with enhanced styling
   const verdict = props.results?.verdict || 'unknown'
   const verdictTitle = getVerdictTitle(verdict)
   const verdictColor = getVerdictColor(verdict)
   const verdictIcon = getVerdictIcon(verdict)
-  
+
   // Create enhanced gradient background for verdict
   const verdictBgHeight = 140
   const verdictGradient = ctx.createLinearGradient(0, currentY - 30, 0, currentY + verdictBgHeight - 30)
   verdictGradient.addColorStop(0, verdictColor + '25')
   verdictGradient.addColorStop(1, verdictColor + '10')
-  
+
   ctx.fillStyle = verdictGradient
   ctx.fillRect(80, currentY - 30, canvas.width - 160, verdictBgHeight)
-  
+
   // Add verdict border with rounded corners effect
   ctx.strokeStyle = verdictColor
   ctx.lineWidth = 4
   ctx.strokeRect(80, currentY - 30, canvas.width - 160, verdictBgHeight)
-  
+
   // Verdict text
   ctx.font = headingFont
   ctx.fillStyle = verdictColor
   ctx.textAlign = 'center'
   ctx.fillText(`${verdictIcon} ${verdictTitle}`, canvas.width / 2, currentY + 30)
-  
+
   // Confidence score
   if (props.results?.confidence_score) {
     ctx.font = smallFont
     ctx.fillStyle = '#666666'
     ctx.fillText(`${t('results.confidence')}: ${Math.round(props.results.confidence_score * 100)}%`, canvas.width / 2, currentY + 70)
   }
-  
+
   currentY += 170
-  
+
   // Add summary if available
   if (props.results?.summary) {
     ctx.font = smallFont
@@ -871,7 +974,7 @@ const createShareImage = async () => {
     ctx.textAlign = 'left'
     ctx.fillText('Summary:', 80, currentY)
     currentY += 45
-    
+
     ctx.font = bodyFont
     ctx.fillStyle = '#333333'
     const wrappedSummary = wrapText(ctx, props.results.summary, canvas.width - 160, 28)
@@ -885,7 +988,7 @@ const createShareImage = async () => {
       currentY += 35
     }
   }
-  
+
   // Add key evidence if available
   if (props.results?.key_evidence && props.results.key_evidence.length > 0) {
     currentY += 40
@@ -894,14 +997,14 @@ const createShareImage = async () => {
     ctx.textAlign = 'left'
     ctx.fillText('Key Findings:', 80, currentY)
     currentY += 45
-    
+
     ctx.font = bodyFont
     ctx.fillStyle = '#333333'
     const maxEvidence = Math.min(props.results.key_evidence.length, 3) // Show top 3
     for (let i = 0; i < maxEvidence; i++) {
       const evidence = props.results.key_evidence[i]
       ctx.fillText('🔍', 80, currentY)
-      
+
       const wrappedEvidence = wrapText(ctx, evidence, canvas.width - 160, 28)
       const maxEvidenceLines = Math.min(wrappedEvidence.length, 2) // Max 2 lines per evidence
       for (let j = 0; j < maxEvidenceLines; j++) {
@@ -915,24 +1018,24 @@ const createShareImage = async () => {
       currentY += 10
     }
   }
-  
+
   // Add footer with enhanced styling
   const footerY = canvas.height - 60
   ctx.font = smallFont
   ctx.fillStyle = '#999999'
   ctx.textAlign = 'center'
-  const analysisDate = props.results?.completed_at 
+  const analysisDate = props.results?.completed_at
     ? new Date(props.results.completed_at).toLocaleDateString()
     : new Date().toLocaleDateString()
   ctx.fillText(`${t('results.analysisCompleted')}: ${analysisDate}`, canvas.width / 2, footerY)
-  
+
   // Add session ID if available (very small at bottom)
   if (props.results?.session_id) {
     ctx.font = tinyFont
     ctx.fillStyle = '#cccccc'
     ctx.fillText(`ID: ${props.results.session_id.slice(0, 8)}...`, canvas.width / 2, footerY + 30)
   }
-  
+
   // Create blob for download/copy functionality
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
@@ -945,7 +1048,7 @@ const createShareImage = async () => {
 // Function to download image
 const downloadImage = () => {
   if (!currentImageBlob) return
-  
+
   const url = URL.createObjectURL(currentImageBlob)
   const a = document.createElement('a')
   a.href = url
@@ -959,7 +1062,7 @@ const downloadImage = () => {
 // Function to copy to clipboard
 const copyToClipboard = async () => {
   if (!currentImageBlob) return
-  
+
   try {
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -979,7 +1082,7 @@ const wrapText = (ctx, text, maxWidth, fontSize) => {
   const segments = text.match(/([\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]|[^\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]+)/g) || [];
   const lines = [];
   let currentLine = '';
-  
+
   for (const segment of segments) {
     // If segment is CJK, wrap by character
     if (/^[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]+$/.test(segment)) {
@@ -1009,7 +1112,7 @@ const wrapText = (ctx, text, maxWidth, fontSize) => {
       }
     }
   }
-  
+
   if (currentLine) lines.push(currentLine);
   return lines;
 }
@@ -1017,14 +1120,14 @@ const wrapText = (ctx, text, maxWidth, fontSize) => {
 // Computed property for debugging citation duplicates
 const citationDebugInfo = computed(() => {
   if (!props.results?.sources || !props.results?.reasoning) return null
-  
+
   const reasoning = props.results.reasoning
   const sources = props.results.sources
-  
+
   // Find all citation references in the text
   const citationMatches = reasoning.match(/\[(\d+)\]/g) || []
   const urlMatches = reasoning.match(/https?:\/\/[^\s\)\],]+/g) || []
-  
+
   // Create debug information
   const debugInfo = {
     totalSources: sources.length,
@@ -1035,11 +1138,11 @@ const citationDebugInfo = computed(() => {
     finalCitationCount: extractCitations(reasoning).length,
     potentialDuplicates: []
   }
-  
+
   // Check for potential duplicates
   const urls = new Set()
   const titles = new Set()
-  
+
   sources.forEach((source, index) => {
     if (source.url) {
       const normalizedUrl = source.url.toLowerCase().replace(/\/$/, '')
@@ -1053,7 +1156,7 @@ const citationDebugInfo = computed(() => {
         urls.add(normalizedUrl)
       }
     }
-    
+
     if (source.title) {
       const normalizedTitle = source.title.toLowerCase().trim()
       if (titles.has(normalizedTitle)) {
@@ -1067,7 +1170,7 @@ const citationDebugInfo = computed(() => {
       }
     }
   })
-  
+
   return debugInfo
 })
 
@@ -1076,18 +1179,18 @@ const cleanDuplicateCitations = (citations) => {
   const cleaned = []
   const seenUrls = new Set()
   const seenTitles = new Set()
-  
+
   citations.forEach(citation => {
     const normalizedUrl = citation.url.toLowerCase().replace(/\/$/, '')
     const normalizedTitle = citation.title.toLowerCase().trim()
-    
+
     if (!seenUrls.has(normalizedUrl) && !seenTitles.has(normalizedTitle)) {
       cleaned.push(citation)
       seenUrls.add(normalizedUrl)
       seenTitles.add(normalizedTitle)
     }
   })
-  
+
   // Re-number the cleaned citations
   return cleaned.map((citation, index) => ({
     ...citation,
@@ -1097,6 +1200,14 @@ const cleanDuplicateCitations = (citations) => {
 </script>
 
 <style scoped>
+
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('../assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 /* Global styles for dynamically inserted content */
 :deep(.citation-button) {
   display: inline-flex;
@@ -1169,7 +1280,7 @@ p, li{
   border-radius: 8px;
   border-left: 4px solid #1890ff;
   font-style: italic;
-  font-family: 'DM Sans', 'LXGW WenKai', 'LXGW WenKai', serif;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
 }
 
 /* Verdict Section */
@@ -1217,13 +1328,14 @@ p, li{
 
 /* Section Titles */
 .section-title {
-  font-family: 'DM Sans', 'LXGW WenKai', serif;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 20px;
   font-weight: 600;
   color: #000000;
   margin: 0 0 16px 0;
   padding-bottom: 8px;
   border-bottom: 1px solid #e9ecef;
+  text-align: center;
 }
 
 /* Analysis Details */
@@ -1335,6 +1447,7 @@ p, li{
   word-break: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
+  text-align: center;
 }
 
 .citation-link:hover {
@@ -1362,6 +1475,7 @@ p, li{
   font-weight: 600;
   color: #000000;
   margin: 0 0 12px 0;
+  text-align: center;
 }
 
 .evidence-list {
@@ -1635,38 +1749,38 @@ p, li{
   .results-container {
     padding: 16px;
   }
-  
+
   .verdict-header {
     flex-direction: column;
     text-align: center;
     gap: 12px;
   }
-  
+
   .verdict-title {
     font-size: 24px;
   }
-  
+
   .source-meta {
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .relevance-indicator {
     flex-wrap: wrap;
   }
-  
+
   .metadata-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
   }
-  
+
   .citation-button {
     font-size: 10px;
     padding: 2px 6px;
     margin: 0 1px 2px 0;
   }
-  
+
   :deep(.citation-button) {
     font-size: 10px;
     padding: 2px 6px;
@@ -1688,7 +1802,7 @@ p, li{
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
-  font-family: 'DM Sans', 'LXGW WenKai', serif;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1874,25 +1988,25 @@ p, li{
     max-width: 95vw;
     max-height: 95vh;
   }
-  
+
   .preview-header h3 {
     font-size: 20px;
   }
-  
+
   .preview-actions {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .preview-action-button {
     width: 100%;
     min-width: auto;
   }
-  
+
   .preview-canvas {
     max-height: 60vh;
   }
-  
+
   .share-button {
     padding: 10px 20px;
     font-size: 14px;

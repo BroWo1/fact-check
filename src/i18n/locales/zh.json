@@ -12,9 +12,15 @@
     "research": "研究",
     "exampleTitle": "尝试示例：",
     "infoText": "我们的AI会对照可靠来源分析声明，并提供详细的验证报告",
-    "uploadButton": "上传图片"
+    "uploadButton": "上传图片",
+    "onThisPage": "本页内容",
+    "style": "风格",
+    "concise": "简洁",
+    "professional": "专业",
+    "informational": "科普"
   },
   "results": {
+    "verdict": "鉴定结果",
     "claimAnalyzed": "分析的声明",
     "analysis": "分析",
     "citations": "引用",
@@ -27,6 +33,7 @@
     "downloadImage": "📥 下载图片",
     "copyToClipboard": "📋 复制到剪贴板",
     "shareResults": "分享结果",
+    "shareAsImage": "分享为图片",
     "copyImageFailed": "复制到剪贴板失败。您的浏览器可能不支持此功能。",
     "copyImageSuccess": "图片已复制到剪贴板！"
   },

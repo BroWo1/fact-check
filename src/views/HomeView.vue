@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Input, Button, Typography, Space, Layout, Upload, notification, Modal } from 'ant-design-vue'
+import { Input, Button, Typography, Space, Layout, Upload, notification, Modal, Select, Tooltip } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useFactCheck } from '../composables/useFactCheck'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
@@ -34,7 +34,7 @@ const tocHeadings = ref([]);
 const isTocCollapsed = ref(true); // Default to collapsed on mobile
 
 const showToc = computed(() => {
-  return !!results.value && selectedMode.value === 'research' && tocHeadings.value.length > 0;
+  return !!results.value && (selectedMode.value === 'research' || selectedMode.value === 'fact_check') && tocHeadings.value.length > 0;
 });
 
 
@@ -154,6 +154,7 @@ const currentExampleIndex = ref(0)
 const uploadedFile = ref(null)
 const imagePreview = ref('')
 const isDragOver = ref(false)
+const selectedStyle = ref('professional') // Default style for research reports
 const isMobileMenuOpen = ref(false)
 const headerActionsRef = ref(null)
 const selectedMode = ref('fact_check')
@@ -476,7 +477,7 @@ const handleSubmit = async () => {
       router.push('/')
     }
 
-    await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value)
+    await startFactCheck(inputText.value, uploadedFile.value, selectedMode.value, selectedStyle.value)
 
     // Scroll to progress
     await nextTick()
@@ -704,20 +705,51 @@ const clearAllModeData = () => {
                 @paste="handlePaste"
               />
               <div class="input-controls">
-                <input
-                  type="file"
-                  id="photo-upload"
-                  accept="image/*"
-                  @change="handleFileUpload"
-                  style="display: none;"
-                />
-                <Button
-                  class="upload-button"
-                  @click="triggerFileUpload"
-                  size="small"
-                >
-                  📷 {{ t('app.uploadButton') }}
-                </Button>
+                <!-- Show upload button for fact-check mode -->
+                <template v-if="selectedMode === 'fact_check'">
+                  <input
+                    type="file"
+                    id="photo-upload"
+                    accept="image/*"
+                    @change="handleFileUpload"
+                    style="display: none;"
+                  />
+                  <Button
+                    class="upload-button"
+                    @click="triggerFileUpload"
+                    size="small"
+                  >
+                    📷 {{ t('app.uploadButton') }}
+                  </Button>
+                </template>
+
+                <!-- Show style selector for research mode -->
+                <template v-if="selectedMode === 'research'">
+                  <div class="style-selector">
+                    <label class="style-label">Style:</label>
+                    <Select
+                      v-model:value="selectedStyle"
+                      class="style-select"
+                      size="small"
+                    >
+                      <Select.Option value="professional">
+                        <Tooltip title="Formal, detailed analysis with comprehensive citations and structured presentation suitable for academic or business contexts" placement="right">
+                          <span>📊 Professional</span>
+                        </Tooltip>
+                      </Select.Option>
+                      <Select.Option value="informational">
+                        <Tooltip title="Clear, accessible explanations with balanced depth and readability for general audiences" placement="right">
+                          <span>📚 Informational</span>
+                        </Tooltip>
+                      </Select.Option>
+                      <Select.Option value="concise">
+                        <Tooltip title="Brief, focused summary highlighting key points and essential findings" placement="right">
+                          <span>⚡ Concise</span>
+                        </Tooltip>
+                      </Select.Option>
+                    </Select>
+                  </div>
+                </template>
               </div>
 
               <div v-if="isDragOver" class="drag-overlay">
@@ -796,6 +828,7 @@ const clearAllModeData = () => {
             :results="results"
             :originalClaim="originalClaim"
             :uploadedImage="imagePreview"
+            @headings-extracted="handleHeadingsExtracted"
           />
           <ResearchResults
             v-else
@@ -996,6 +1029,7 @@ const clearAllModeData = () => {
 .toc-wrapper {
     grid-area: left-gutter;
     justify-self: end;
+
 }
 
 .results-content-area {
@@ -1133,21 +1167,139 @@ const clearAllModeData = () => {
   z-index: 10;
 }
 
-.upload-button {
-  background: #f8f9fa !important;
-  border: 1px solid #e9ecef !important;
-  color: #666666 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 12px !important;
-  height: 32px !important;
-  border-radius: 6px !important;
-  transition: all 0.2s ease !important;
+.upload-button,
+.style-selector {
+  height: auto;
+  padding: 4px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  color: #666666;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  transition: all 0.2s ease;
 }
+
+.upload-button:hover,
+.style-selector:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+  color: #495057;
+}
+
 
 .upload-button:hover {
   background: #e9ecef !important;
-  border-color: #000000 !important;
-  color: #000000 !important;
+  border-color: #dee2e6 !important;
+  color: #495057 !important;
+}
+
+.style-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 4px 12px;
+  transition: all 0.2s ease;
+}
+
+.style-selector:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+}
+
+
+.style-label {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 14px;
+  color: #666666;
+  margin: 0;
+  white-space: nowrap;
+  font-weight: normal;
+}
+
+
+.style-select {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  flex-shrink: 0;
+}
+
+
+.style-select .ant-select-selector {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding: 0 !important;
+  height: auto !important;
+  box-shadow: none !important;
+  min-height: auto !important;
+}
+
+.style-select .ant-select-selector:hover {
+  background: transparent !important;
+  border: none !important;
+}
+
+.style-select .ant-select-selection-item {
+  color: #666666 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding-right: 0 !important;
+}
+
+.style-select .ant-select-arrow {
+  color: #666666 !important;
+  right: 0 !important;
+}
+
+.style-select:hover .ant-select-selection-item,
+.style-selector:hover .style-label,
+.style-selector:hover .ant-select-arrow {
+  color: #495057 !important;
+}
+
+.style-select.ant-select-focused .ant-select-selector {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+
+.style-select .ant-select-selector {
+  background: #f8f9fa !important;
+  border: 1px solid #e9ecef !important;
+  border-radius: 6px !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding: 4px 12px !important;
+  height: auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.style-select .ant-select-selector:hover {
+  background: #e9ecef !important;
+  border-color: #dee2e6 !important;
+}
+
+.style-select .ant-select-selection-item {
+  color: #666666 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+}
+
+.style-select:hover .ant-select-selector {
+  background: #e9ecef !important;
+  border-color: #dee2e6 !important;
+}
+
+.style-select .ant-select-selection-item:hover {
+  color: #495057 !important;
 }
 
 .image-preview {
@@ -1404,18 +1556,22 @@ const clearAllModeData = () => {
         z-index: 90;
 
         /* Visuals for floating state with enhanced transparency and blur */
-        background: rgba(255, 255, 255, 0.5); /* More transparent background */
+        background: rgba(255, 255, 255, 0.65); /* More transparent background */
         backdrop-filter: blur(8px) saturate(1.2);
         -webkit-backdrop-filter: blur(8px) saturate(1.2); /* For Safari */
 
         /* Layout adjustments for full-width sticky bar */
         justify-self: stretch;
-        margin: 0 -24px; /* Counteract parent padding to go full-width */
-        padding: 0 24px; /* Add padding back inside */
-
-
+        /* Remove negative margin that causes overflow */
+        margin: 0;
+        padding: 0 24px; /* Match parent container padding */
+        /* Ensure it doesn't exceed viewport width */
+        max-width: 100%;
+        box-sizing: border-box;
 
         transition: background-color 0.3s ease, border-color 0.3s ease;
+        mask: linear-gradient(to bottom, white calc(100% - 10px), transparent 100%);
+        -webkit-mask: linear-gradient(to bottom, white calc(100% - 10fpx), transparent 100%);
     }
 
     .toc-wrapper.is-collapsed {
@@ -1423,8 +1579,8 @@ const clearAllModeData = () => {
 
         /* Gradient mask for fade-out effect at bottom */
 
-        mask: linear-gradient(to bottom, white 80%, transparent 100%);
-        -webkit-mask: linear-gradient(to bottom, white 80%, transparent 100%);
+        mask: linear-gradient(to bottom, white 75%, transparent 100%);
+        -webkit-mask: linear-gradient(to bottom, white 75%, transparent 100%);
     }
 }
 

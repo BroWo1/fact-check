@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n();
 
 const emit = defineEmits(['update:collapsed']);
 
@@ -61,30 +63,38 @@ const processedHeadings = computed(() => {
   <transition name="toc-fade">
     <div v-if="visible && headings.length > 0" class="toc-container">
       <div class="toc-header" @click="toggleTocCollapse">
-        <h4 class="toc-title">On this page</h4>
+        <h4 class="toc-title">{{ t('app.onThisPage') }}</h4>
         <div class="collapse-indicator" :class="{ 'collapsed': isTocCollapsed }">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
       </div>
-      <div class="toc-list-container" :class="{ 'collapsed': isTocCollapsed }">
-        <ul class="toc-list">
-          <li
-            v-for="heading in processedHeadings"
-            :key="heading.id"
-            :class="['toc-item', `toc-item-level-${heading.level}`]"
-            @click="scrollToHeading(heading.id)"
-          >
-            {{ heading.text }}
-          </li>
-        </ul>
+      <div class="toc-content" :class="{ 'collapsed': isTocCollapsed }">
+        <div class="toc-inner">
+          <ul class="toc-list">
+            <li
+              v-for="heading in processedHeadings"
+              :key="heading.id"
+              :class="['toc-item', `toc-item-level-${heading.level}`]"
+              @click="scrollToHeading(heading.id)"
+            >
+              {{ heading.text }}
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </transition>
 </template>
 
 <style scoped>
+@font-face {
+  font-family: 'LXGW Neo ZhiSong Plus';
+  src: url('../assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 .toc-container {
   position: sticky;
   top: 100px; /* 80px for sticky header + 20px margin */
@@ -109,7 +119,7 @@ const processedHeadings = computed(() => {
 }
 
 .toc-title {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'LXGW Neo ZhiSong Plus', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: #000;
@@ -121,7 +131,7 @@ const processedHeadings = computed(() => {
 
 .collapse-indicator {
   color: #999;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s linear, color 0.2s ease-out;
   display: flex;
   align-items: center;
 }
@@ -130,14 +140,31 @@ const processedHeadings = computed(() => {
   transform: rotate(-90deg);
 }
 
-.toc-list-container {
+/* Using the exact same animation approach as Progress2.vue */
+.toc-content {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 0.2s ease;
+  overflow: hidden;
+  transition: grid-template-rows 0.25s ease;
 }
 
-.toc-list-container.collapsed {
+.toc-content.collapsed {
   grid-template-rows: 0fr;
+}
+
+.toc-inner {
+  padding: 0;
+  min-height: 0;
+  opacity: 1;
+  filter: blur(0);
+  transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.toc-content.collapsed .toc-inner {
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  filter: blur(4px);
 }
 
 .toc-list {
@@ -145,22 +172,10 @@ const processedHeadings = computed(() => {
   padding: 0;
   margin: 0;
   border-left: 1px solid #e0e0e0;
-  overflow: hidden;
-  min-height: 0;
-  transition: opacity 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
-  opacity: 1;
-  filter: blur(0);
-}
-
-.toc-list-container.collapsed .toc-list {
-  opacity: 0;
-  filter: blur(4px);
-  /* When collapsed, the border should not be visible */
-  border-left-color: transparent;
 }
 
 .toc-item {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', 'LXGW WenKai', sans-serif;
   font-size: 14px;
   color: #666;
   padding: 6px 0 6px 16px;
@@ -205,7 +220,7 @@ const processedHeadings = computed(() => {
   .toc-container {
     /* On mobile, the parent .toc-wrapper becomes sticky. This container just needs to sit inside it. */
     position: static;
-    top: auto;
+    top:   auto;
     max-height: none;
     overflow-y: visible;
     padding-right: 0;

@@ -1,5 +1,5 @@
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     
     // Handle CORS preflight requests
@@ -65,64 +65,14 @@ export default {
       }
     }
     
-    // Define static asset extensions
-    const staticAssetExtensions = [
-      '.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', 
-      '.woff', '.woff2', '.ttf', '.eot', '.otf', '.mp4', '.webm', 
-      '.mp3', '.wav', '.pdf', '.zip', '.json', '.xml', '.txt'
-    ];
-    
-    // Check if request is for a static asset
-    const isStaticAsset = staticAssetExtensions.some(ext => 
-      url.pathname.toLowerCase().endsWith(ext)
-    );
-    
-    // Serve static assets directly
-    if (isStaticAsset) {
-      try {
-        const response = await env.ASSETS.fetch(request);
-        
-        // Add appropriate cache headers for static assets
-        const newHeaders = new Headers(response.headers);
-        newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
-        
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: newHeaders
-        });
-      } catch (e) {
-        console.error('Static asset not found:', url.pathname);
-        return new Response('Asset not found', { status: 404 });
-      }
-    }
-    
-    // Handle SPA routing - serve index.html for all non-asset, non-API requests
+    // For all other requests, serve static assets. Cloudflare will return
+    // `index.html` automatically when a path is missing thanks to the
+    // `single-page-application` not_found_handling setting.
     try {
-      const indexRequest = new Request(new URL('/index.html', url.origin), request);
-      const indexResponse = await env.ASSETS.fetch(indexRequest);
-      
-      if (!indexResponse.ok) {
-        throw new Error('index.html not found');
-      }
-      
-      return new Response(indexResponse.body, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
+      return await env.ASSETS.fetch(request);
     } catch (e) {
-      console.error('Failed to serve index.html:', e);
-      return new Response('Application not found', { 
-        status: 404,
-        headers: {
-          'Content-Type': 'text/html'
-        }
-      });
+      console.error('Failed to serve asset:', url.pathname, e);
+      return new Response('Application not found', { status: 404 });
     }
   }
 };

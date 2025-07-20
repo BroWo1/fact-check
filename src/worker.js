@@ -65,12 +65,19 @@ export default {
       }
     }
     
-    // For all other requests, serve assets with SPA fallback configured in
-    // wrangler.jsonc. The asset worker will automatically return `index.html`
-    // when a path isn't found.
+    // For all other requests, attempt to serve static assets. If the requested
+    // asset isn't found, fall back to `index.html` so that client-side routing
+    // in the SPA works correctly.
     try {
-      const response = await env.ASSETS.fetch(request);
-      return response;
+      const assetResponse = await env.ASSETS.fetch(request);
+
+      if (assetResponse.status === 404) {
+        const indexRequest = new Request('/index.html', request);
+        const indexResponse = await env.ASSETS.fetch(indexRequest);
+        return new Response(indexResponse.body, indexResponse);
+      }
+
+      return assetResponse;
     } catch (e) {
       console.error('Failed to serve asset:', url.pathname, e);
       return new Response('Application not found', { status: 404 });

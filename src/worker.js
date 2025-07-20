@@ -64,7 +64,6 @@ export default {
         });
       }
     }
-    
     // For all other requests, serve static assets. Cloudflare will return
     // `index.html` automatically when a path is missing thanks to the
     // `single-page-application` not_found_handling setting.

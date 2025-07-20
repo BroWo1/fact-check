@@ -64,20 +64,11 @@ export default {
         });
       }
     }
-    
-    // For all other requests, attempt to serve static assets. If the requested
-    // asset isn't found, fall back to `index.html` so that client-side routing
-    // in the SPA works correctly.
+    // For all other requests, serve static assets. Cloudflare will return
+    // `index.html` automatically when a path is missing thanks to the
+    // `single-page-application` not_found_handling setting.
     try {
-      const assetResponse = await env.ASSETS.fetch(request);
-
-      if (assetResponse.status === 404) {
-        const indexRequest = new Request('/index.html', request);
-        const indexResponse = await env.ASSETS.fetch(indexRequest);
-        return new Response(indexResponse.body, indexResponse);
-      }
-
-      return assetResponse;
+      return await env.ASSETS.fetch(request);
     } catch (e) {
       console.error('Failed to serve asset:', url.pathname, e);
       return new Response('Application not found', { status: 404 });

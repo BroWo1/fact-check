@@ -835,6 +835,11 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
     font-size: 18px;
   }
 
+  .markdown-content :deep(p) {
+    font-size: 14px;
+    margin: 14px, 0;
+  }
+
   .sources-header {
     padding: 12px 16px;
   }

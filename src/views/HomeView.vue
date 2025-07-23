@@ -138,6 +138,7 @@ const loadAnalysisFromUuid = (analysisUuid) => {
 // Watch for route changes
 watch(() => route.params.uuid, (newUuid) => {
   uuid.value = newUuid
+  hasAttemptedUuidLoad.value = false // Reset the flag for new UUID
   if (newUuid) {
     loadAnalysisFromUuid(newUuid)
   }
@@ -223,11 +224,16 @@ const progressDataByMode = ref({
 
 const analysisProgressRef = ref(null)
 const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behavior
+// Track if we've already attempted to load from UUID to prevent duplicates
+const hasAttemptedUuidLoad = ref(false)
+
 // Watch for saved analyses to be loaded, then check for UUID
 watch(savedAnalyses, (analyses) => {
   console.log('Saved analyses updated, count:', analyses.length)
   // If we have a UUID in the route and analyses are now loaded, try loading the analysis
-  if (uuid.value && analyses.length > 0) {
+  // Only attempt once to prevent duplicate loads
+  if (uuid.value && analyses.length > 0 && !hasAttemptedUuidLoad.value) {
+    hasAttemptedUuidLoad.value = true
     loadAnalysisFromUuid(uuid.value)
   }
 }, { immediate: true })
@@ -237,9 +243,7 @@ const {
   availableSessions,
   isRecovering,
   showRecoveryDialog,
-  hasRecoverableSessions,
   formatSessionForDisplay,
-  recoverSession: handleRecoverSession,
   dismissSession,
   dismissAllSessions,
   closeRecoveryDialog,
@@ -346,8 +350,12 @@ watch(selectedMode, (newMode, oldMode) => {
 })
 
 const handleClickOutside = (event) => {
-  if (isMobileMenuOpen.value && headerActionsRef.value && !headerActionsRef.value.contains(event.target)) {
-    isMobileMenuOpen.value = false;
+  if (isMobileMenuOpen.value) {
+    // Check if click is outside the entire header
+    const header = document.querySelector('.header');
+    if (header && !header.contains(event.target)) {
+      isMobileMenuOpen.value = false;
+    }
   }
 };
 
@@ -358,6 +366,7 @@ onMounted(() => {
 
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
   document.addEventListener('click', handleClickOutside);
+  window.addEventListener('resize', handleResize);
 
   // Initialize session persistence service
   sessionPersistenceService.initialize()
@@ -366,8 +375,9 @@ onMounted(() => {
   checkForRecoverableSessions()
 
   // Load analysis if UUID is present in the route
-  if (uuid.value) {
+  if (uuid.value && !hasAttemptedUuidLoad.value) {
     console.log('Loading analysis on mount for UUID:', uuid.value)
+    hasAttemptedUuidLoad.value = true
     loadAnalysisFromUuid(uuid.value)
   }
 })
@@ -377,6 +387,7 @@ onUnmounted(() => {
     clearInterval(rotationInterval)
   }
   document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('resize', handleResize);
 })
 
 const selectExample = (example) => {
@@ -500,8 +511,8 @@ watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
   console.log('🔍 Original claim length:', newOriginalClaim?.length)
   console.log('🔍 Original claim truthy:', !!newOriginalClaim)
 
-  // Temporarily remove isLoadingSavedAnalysis condition to debug
-  if (newResults && newOriginalClaim && !isLoading.value) {
+  // Only save if this is a new analysis completion, not loading an existing one
+  if (newResults && newOriginalClaim && !isLoading.value && !isLoadingSavedAnalysis.value && !isRecoveringSession.value) {
     console.log('💾 Attempting to save analysis:', newOriginalClaim.substring(0, 50))
     try {
       const analysisId = saveAnalysis(newResults, newOriginalClaim, selectedMode.value, progressCollapsed.value, {
@@ -558,12 +569,22 @@ const handleLogoClick = () => {
 }
 
 const toggleMobileMenu = () => {
-    isMobileMenuOpen.value = !isMobileMenuOpen.value;
+    // Only allow mobile menu toggle on mobile devices
+    if (window.innerWidth <= 768) {
+        isMobileMenuOpen.value = !isMobileMenuOpen.value;
+    }
 };
 
 const handleSelectSavedAnalysisAndCloseMenu = (analysis) => {
     handleSelectSavedAnalysis(analysis);
     isMobileMenuOpen.value = false;
+};
+
+// Handle window resize to close mobile menu when switching to desktop
+const handleResize = () => {
+  if (window.innerWidth > 768 && isMobileMenuOpen.value) {
+    isMobileMenuOpen.value = false;
+  }
 };
 
 const handleKeyPress = (e) => {
@@ -584,11 +605,14 @@ const handleRecoverSessionClick = async (sessionId) => {
     // Set flag to prevent the mode watcher from clearing results
     isRecoveringSession.value = true
 
+    // CRITICAL FIX: Set the selectedMode BEFORE recovering the session
+    // This ensures the correct component (ResearchResults vs FactCheckResults) is rendered
+    selectedMode.value = sessionData.mode || 'fact_check'
+
     // Reset current state and recover session
     await recoverSession(sessionData)
 
     // Update UI state
-    selectedMode.value = sessionData.mode || 'fact_check'
     inputText.value = sessionData.originalClaim
     uploadedFile.value = null
     imagePreview.value = ''
@@ -642,35 +666,36 @@ const clearAllModeData = () => {
 
 <template>
   <Layout class="main-layout" :lang="locale === 'zh' ? 'zh-CN' : 'en'">
-    <Header class="header">
+    <Header class="header" :class="{ 'mobile-expanded': isMobileMenuOpen }">
       <div class="header-content">
-        <div class="logo-section" @click="handleLogoClick">
-          <img
-            src="../assets/itlookslegitTrans.png"
-            alt="Logo"
-            class="logo-image"
-            style="height: 56px; width: auto; margin-right: 8px;"
-          />
-
-        </div>
-        <div class="header-actions" ref="headerActionsRef">
-          <div class="header-menu-items-wrapper-desktop">
-             <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
-             <LanguageSelector />
+        <div class="header-row-primary">
+          <div class="logo-section" @click="handleLogoClick">
+            <img
+              src="../assets/itlookslegitTrans.png"
+              alt="Logo"
+              class="logo-image"
+              style="height: 56px; width: auto; margin-right: 8px;"
+            />
           </div>
-          <Button
-            class="mobile-menu-button"
-            @click="toggleMobileMenu"
-            :class="{ 'is-active': isMobileMenuOpen }"
-          >
-            ☰
-          </Button>
-          <transition name="dropdown-fade">
-            <div v-if="isMobileMenuOpen" class="header-menu-items-wrapper-mobile">
-              <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
-              <LanguageSelector />
+          <div class="header-actions" ref="headerActionsRef">
+            <div class="header-menu-items-wrapper-desktop">
+               <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
+               <LanguageSelector />
             </div>
-          </transition>
+            <Button
+              class="mobile-menu-button"
+              @click="toggleMobileMenu"
+              :class="{ 'is-active': isMobileMenuOpen }"
+            >
+              ☰
+            </Button>
+          </div>
+        </div>
+        <div class="header-row-secondary" :class="{ 'collapsed': !isMobileMenuOpen }">
+          <div class="secondary-content">
+            <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
+            <LanguageSelector />
+          </div>
         </div>
       </div>
     </Header>
@@ -939,6 +964,11 @@ const clearAllModeData = () => {
   position: sticky;
   top: 0;
   z-index: 100;
+  transition: height 0.25s ease-out;
+}
+
+.header.mobile-expanded {
+  height: 140px;
 }
 
 .header-content {
@@ -946,9 +976,82 @@ const clearAllModeData = () => {
   margin: 0 auto;
   padding: 0 24px;
   height: 100%;
+  display: grid;
+  grid-template-rows: 80px 1fr;
+  align-items: center;
+}
+
+.header-row-primary {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 80px;
+}
+
+.header-row-secondary {
+  display: none; /* Hidden on desktop by default */
+}
+
+.header-row-secondary .secondary-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 0;
+  min-height: 0;
+  opacity: 1;
+  filter: blur(0);
+  transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+  position: relative;
+  z-index: 1001;
+}
+
+/* Allow dropdowns in mobile header to extend beyond header boundaries */
+.header.mobile-expanded .header-row-secondary {
+  overflow: visible;
+}
+
+.header.mobile-expanded .header-row-secondary .secondary-content {
+  overflow: visible;
+}
+
+/* Ensure dropdown components in mobile header have proper z-index and positioning */
+@media (max-width: 768px) {
+  .header.mobile-expanded .saved-analyses-dropdown {
+    position: static;
+  }
+
+  .header.mobile-expanded .saved-analyses-dropdown .dropdown-menu {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    left: 16px;
+    z-index: 1100;
+    transform: translateY(8px);
+    min-width: auto;
+    max-width: none;
+    width: auto;
+    margin: 0;
+  }
+
+  /* Ensure the header doesn't clip dropdowns when expanded */
+  .header.mobile-expanded {
+    overflow: visible;
+  }
+
+  .header.mobile-expanded .header-content {
+    overflow: visible;
+  }
+
+  .header.mobile-expanded .header-row-secondary {
+    overflow: visible;
+    z-index: 1050;
+  }
+
+  .header.mobile-expanded .header-row-secondary .secondary-content {
+    overflow: visible;
+    z-index: 1050;
+  }
 }
 
 .logo-section {
@@ -1526,17 +1629,7 @@ const clearAllModeData = () => {
   text-align: right;
 }
 
-/* Dropdown Animation */
-.dropdown-fade-enter-active,
-.dropdown-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
 
-.dropdown-fade-enter-from,
-.dropdown-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
 
 @media (max-width: 1200px) {
     .results-layout-wrapper.has-toc {
@@ -1595,9 +1688,49 @@ const clearAllModeData = () => {
     height: 70px;
   }
 
+  .header.mobile-expanded {
+    height: 130px;
+  }
+
   .header-content {
     padding: 0 16px;
-    gap: 8px;
+    grid-template-rows: 70px auto;
+  }
+
+  .header-row-primary {
+    height: 70px;
+  }
+
+  .header-row-secondary {
+    border-top-color: #f0f0f0;
+    display: grid;
+  }
+
+  .header-row-secondary.collapsed {
+    grid-template-rows: 0fr;
+    border-top-color: transparent;
+  }
+  .header-row-secondary .secondary-content {
+    padding: 8px 0 12px 0;
+  }
+
+  .header-row-secondary.collapsed {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    pointer-events: none; /* Prevent interaction when collapsed */
+  }
+
+  .header-row-secondary.collapsed .secondary-content {
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    filter: blur(4px);
   }
 
   .logo-section {
@@ -1641,23 +1774,6 @@ const clearAllModeData = () => {
 
   .mobile-menu-button.is-active {
     transform: rotate(90deg);
-  }
-
-  .header-menu-items-wrapper-mobile {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    background: white;
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-    border: 1px solid #f0f0f0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    z-index: 120;
-    width: 220px;
   }
 
   .main-title {

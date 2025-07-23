@@ -21,10 +21,10 @@ export function useSessionRecovery() {
   // Format session for display
   const formatSessionForDisplay = (session) => {
     const timeAgo = getTimeAgo(new Date(session.lastUpdate))
-    const shortClaim = session.originalClaim.length > 60 
-      ? `${session.originalClaim.substring(0, 60)}...` 
+    const shortClaim = session.originalClaim.length > 60
+      ? `${session.originalClaim.substring(0, 60)}...`
       : session.originalClaim
-    
+
     return {
       ...session,
       displayClaim: shortClaim,
@@ -55,7 +55,7 @@ export function useSessionRecovery() {
     isRecovering.value = true
     try {
       const recoveredSession = await sessionPersistenceService.recoverSession(sessionId)
-      
+
       notification.success({
         message: 'Session Recovered',
         description: 'Your analysis session has been restored and will continue.',
@@ -65,16 +65,16 @@ export function useSessionRecovery() {
       return recoveredSession
     } catch (error) {
       console.error('Failed to recover session:', error)
-      
+
       notification.error({
         message: 'Recovery Failed',
         description: 'Could not recover the session. It may have expired.',
         duration: 4
       })
-      
+
       // Remove from available sessions
       availableSessions.value = availableSessions.value.filter(s => s.sessionId !== sessionId)
-      
+
       throw error
     } finally {
       isRecovering.value = false
@@ -85,7 +85,7 @@ export function useSessionRecovery() {
   const dismissSession = (sessionId) => {
     sessionPersistenceService.removeActiveSession(sessionId)
     availableSessions.value = availableSessions.value.filter(s => s.sessionId !== sessionId)
-    
+
     if (availableSessions.value.length === 0) {
       showRecoveryDialog.value = false
     }
@@ -108,10 +108,10 @@ export function useSessionRecovery() {
   // Check for sessions to recover on app startup
   const checkForRecoverableSessions = () => {
     const sessions = loadRecoverableSessions()
-    
+
     if (sessions.length > 0) {
       console.log(`Found ${sessions.length} recoverable sessions`)
-      
+
       // Also check if user returned from notification
       const sessionToRestore = sessionPersistenceService.getSessionToRestore()
       if (sessionToRestore) {

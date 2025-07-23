@@ -270,16 +270,16 @@ const emit = defineEmits(['headings-extracted'])
 // Computed property for static TOC headings
 const tocHeadings = computed(() => {
   if (!props.results) return []
-  
+
   const headings = []
-  
+
   // Verdict Section
   headings.push({
     id: 'verdict-section',
     text: t('results.verdict'),
     level: 2
   })
-  
+
   // Analysis Details
   if (props.results.reasoning) {
     headings.push({
@@ -288,7 +288,7 @@ const tocHeadings = computed(() => {
       level: 2
     })
   }
-  
+
   // Citations Section
   if (extractCitations(props.results.reasoning).length > 0) {
     headings.push({
@@ -297,7 +297,7 @@ const tocHeadings = computed(() => {
       level: 2
     })
   }
-  
+
   // Evidence Section
   if (props.results.key_evidence || props.results.supporting_evidence || props.results.contradictory_evidence) {
     headings.push({
@@ -305,7 +305,7 @@ const tocHeadings = computed(() => {
       text: t('results.evidence'),
       level: 2
     })
-    
+
     // Key Findings subsection
     if (props.results.key_evidence && props.results.key_evidence.length > 0) {
       headings.push({
@@ -314,7 +314,7 @@ const tocHeadings = computed(() => {
         level: 3
       })
     }
-    
+
     // Supporting Evidence subsection
     if (props.results.supporting_evidence && props.results.supporting_evidence.length > 0) {
       headings.push({
@@ -323,7 +323,7 @@ const tocHeadings = computed(() => {
         level: 3
       })
     }
-    
+
     // Contradictory Evidence subsection
     if (props.results.contradictory_evidence && props.results.contradictory_evidence.length > 0) {
       headings.push({
@@ -333,7 +333,7 @@ const tocHeadings = computed(() => {
       })
     }
   }
-  
+
   // Limitations Section
   if (props.results.limitations && props.results.limitations.length > 0) {
     headings.push({
@@ -342,14 +342,14 @@ const tocHeadings = computed(() => {
       level: 2
     })
   }
-  
+
   // Share Section
   headings.push({
     id: 'share-section',
     text: t('results.shareResults'),
     level: 2
   })
-  
+
   return headings
 })
 
@@ -1746,6 +1746,10 @@ p, li{
 }
 
 @media (max-width: 768px) {
+  p{
+    font-size: 14px;
+    margin: 14px, 0;
+  }
   .results-container {
     padding: 16px;
   }

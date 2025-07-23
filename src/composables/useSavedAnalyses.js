@@ -132,21 +132,23 @@ export function useSavedAnalyses() {
       (analysis) => analysis.originalClaim.trim().toLowerCase() === normalizedClaim
     )
 
-    let analysisId
+    let analysisId, originalTimestamp
     if (existingAnalysisIndex > -1) {
-      // Preserve the existing UUID when updating
+      // Preserve the existing UUID and timestamp when updating
       analysisId = savedAnalyses.value[existingAnalysisIndex].id
-      console.log('📝 Updating existing analysis with preserved UUID:', analysisId)
+      originalTimestamp = savedAnalyses.value[existingAnalysisIndex].timestamp
+      console.log('📝 Updating existing analysis with preserved UUID and timestamp:', analysisId)
       savedAnalyses.value.splice(existingAnalysisIndex, 1)
     } else {
       // Generate new UUID only for truly new analyses
       analysisId = uuidv4()
+      originalTimestamp = new Date().toISOString()
       console.log('✨ Creating new analysis with UUID:', analysisId)
     }
 
     const newAnalysis = {
       id: analysisId,
-      timestamp: new Date().toISOString(),
+      timestamp: originalTimestamp, // Preserve original timestamp
       results,
       originalClaim,
       verdict: results.verdict,

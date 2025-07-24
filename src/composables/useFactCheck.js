@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import factCheckService from '../services/factCheckService'
 import websocketService from '../services/websocketService'
@@ -8,6 +8,15 @@ export function useFactCheck() {
   const { t } = useI18n()
   const isLoading = ref(false)
   const sessionId = ref(null)
+  
+  // Debug sessionId changes
+  watch(sessionId, (newValue, oldValue) => {
+    console.log('🔍 useFactCheck - sessionId changed:', {
+      old: oldValue,
+      new: newValue,
+      stack: new Error().stack
+    })
+  })
   const error = ref(null)
   const results = ref(null)
   const originalClaim = ref('')

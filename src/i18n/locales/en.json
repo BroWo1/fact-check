@@ -78,7 +78,16 @@
     "relevance": "Relevance",
     "startNewResearch": "Start New Research",
     "copy": "Copy Report",
-    "download": "Download TXT"
+    "download": "Download TXT",
+    "editSection": "Edit Section",
+    "editPrompt": "Edit Instructions",
+    "editPromptPlaceholder": "Describe how you'd like to refine or expand this section...",
+    "submitEdit": "Apply Edit",
+    "editing": "Editing...",
+    "editFailed": "Edit Failed",
+    "editFailedDescription": "Unable to edit the section. Please try again.",
+    "editSuccess": "Section Updated",
+    "editSuccessDescription": "The section has been successfully updated."
   },
   "loading": {
     "submitting": "Submitting your request...",
@@ -128,5 +137,8 @@
       "connected": "Real-time updates connected",
       "connecting": "Connecting to live updates..."
     }
+  },
+  "common": {
+    "cancel": "Cancel"
   }
 }

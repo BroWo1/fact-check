@@ -42,6 +42,17 @@ const handleHeadingsExtracted = (headings) => {
   tocHeadings.value = headings
 }
 
+const handleSectionUpdated = (updatedResults) => {
+  console.log('Section updated event received in HomeView')
+  console.log('Current results length:', results.value?.summary?.length || 0)
+  console.log('Updated results length:', updatedResults?.summary?.length || 0)
+  
+  // Update the results with the new section content
+  results.value = updatedResults
+  
+  console.log('Results updated, new length:', results.value?.summary?.length || 0)
+}
+
 // Function to navigate to analysis URL
 const navigateToAnalysis = (analysisId) => {
   router.push(`/${analysisId}`)
@@ -181,6 +192,16 @@ const {
   cancelFactCheck,
   resetState
 } = useFactCheck()
+
+// Debug sessionId changes
+watch(sessionId, (newSessionId, oldSessionId) => {
+  console.log('HomeView - sessionId changed:', {
+    old: oldSessionId,
+    new: newSessionId,
+    results: !!results.value,
+    isLoading: isLoading.value
+  })
+}, { immediate: true })
 
 // Saved analyses integration
 const { saveAnalysis, savedAnalyses } = useSavedAnalyses()
@@ -859,7 +880,10 @@ const clearAllModeData = () => {
             v-else
             :results="results"
             :originalClaim="originalClaim"
+            :sessionId="sessionId"
             @headings-extracted="handleHeadingsExtracted"
+            @section-updated="handleSectionUpdated"
+            :key="`research-${sessionId}`"
           />
           <div class="new-analysis-section">
             <Button

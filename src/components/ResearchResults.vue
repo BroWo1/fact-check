@@ -80,14 +80,27 @@
       </ul>
     </div>
   </div>
+  
+  <!-- Add the edit modal component -->
+      <SectionEditModal
+      v-if="showEditModal"
+      ref="editModalRef"
+      :visible="showEditModal"
+      :sectionData="selectedSection"
+      :targetElement="selectedElement"
+      @close="closeEditModal"
+      @submit-edit="handleSectionEdit"
+    />
 </template>
 
 <script setup>
-import { computed, ref, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { notification } from 'ant-design-vue'
 import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
+import SectionEditModal from './SectionEditModal.vue'
+import factCheckService from '../services/factCheckService'
 
 const { t } = useI18n()
 
@@ -99,13 +112,36 @@ const props = defineProps({
   originalClaim: {
     type: String,
     default: ''
+  },
+  sessionId: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['headings-extracted'])
+// Get the effective sessionId - use prop or fallback to results.session_id
+const effectiveSessionId = computed(() => {
+  const propSessionId = props.sessionId && props.sessionId.trim() !== '' ? props.sessionId : null
+  const resultsSessionId = props.results?.session_id || null
+  
+  const effective = propSessionId || resultsSessionId
+  console.log('🔍 Effective sessionId calculation:', {
+    propSessionId,
+    resultsSessionId,
+    effective
+  })
+  
+  return effective
+})
+
+const emit = defineEmits(['headings-extracted', 'section-updated'])
 
 const copying = ref(false)
 const isSourcesCollapsed = ref(true) // Start collapsed by default
+const showEditModal = ref(false)
+const selectedSection = ref({})
+const selectedElement = ref(null)
+const editModalRef = ref(null)
 
 // Initialize deduplicator once for the entire component
 const deduplicator = useCitationDeduplicator()
@@ -137,9 +173,17 @@ const deduplicatedSources = computed(() => {
 const renderedMarkdown = computed(() => {
   if (!props.results.summary) return ''
 
+  // Debug sessionId availability
+  console.log('ResearchResults - renderedMarkdown computed:', {
+    propSessionId: props.sessionId,
+    resultsSessionId: props.results?.session_id,
+    effectiveSessionId: effectiveSessionId.value
+  })
+  console.log('ResearchResults - props.results:', props.results)
+
   // Reset deduplicator for fresh calculation
   deduplicator.reset()
-
+  
   // Configure marked options
   marked.setOptions({
     breaks: true,
@@ -149,10 +193,14 @@ const renderedMarkdown = computed(() => {
   })
 
   const htmlContent = addIdsToHeadings(removeDuplicateCitations(marked(props.results.summary)))
+  
+  // Make this computed reactive to sessionId changes
+  void effectiveSessionId.value
 
   // Extract headings and emit to parent
   nextTick(() => {
     extractAndEmitHeadings(htmlContent)
+    setupEditHandlers()
   })
 
   return htmlContent
@@ -166,15 +214,127 @@ const addIdsToHeadings = (htmlContent) => {
   tempDiv.innerHTML = htmlContent
 
   const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  
+  // Check if sessionId is available for edit functionality
+  const hasSessionId = effectiveSessionId.value !== null
 
   headings.forEach((heading, index) => {
     const text = heading.textContent.trim()
     const id = `heading-${index}-${text.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
     heading.id = id
     heading.style.scrollMarginTop = '80px'
+    
+    // Add edit functionality to H2 headings - always show for visual consistency
+    if (heading.tagName === 'H2') {
+      heading.style.position = 'relative'
+      heading.style.cursor = 'pointer'
+      heading.classList.add('editable-heading')
+      // Add data attribute to indicate if actually editable
+      heading.dataset.hasSessionId = hasSessionId ? 'true' : 'false'
+    }
   })
 
   return tempDiv.innerHTML
+}
+
+// Add click handlers to headings after DOM is updated
+const setupEditHandlers = () => {
+  nextTick(() => {
+    const editableHeadings = document.querySelectorAll('.markdown-content h2.editable-heading')
+    
+    editableHeadings.forEach((heading) => {
+      if (!heading.dataset.hasHandler) {
+        heading.dataset.hasHandler = 'true'
+        
+        // Add edit icon right after the title text
+        let editIcon = heading.querySelector('.edit-icon')
+        if (!editIcon) {
+          editIcon = document.createElement('span')
+          editIcon.innerHTML = ' ✏️'
+          editIcon.className = 'edit-icon'
+          heading.appendChild(editIcon)
+        }
+        
+        // Update icon appearance based on sessionId availability
+        const hasSessionId = effectiveSessionId.value !== null
+        if (hasSessionId) {
+          editIcon.style.opacity = '0.6'
+          editIcon.style.filter = 'none'
+        } else {
+          editIcon.style.opacity = '0.3'
+          editIcon.style.filter = 'grayscale(100%)'
+        }
+        
+        // Click handler on the entire heading
+        heading.addEventListener('click', (event) => {
+          event.preventDefault()
+          const text = heading.textContent.replace('✏️', '').trim()
+          const id = heading.id
+          
+          // Debug logging
+          console.log('H2 heading clicked:', text)
+          console.log('SessionId at click time:', props.sessionId)
+          console.log('Props object:', props)
+          
+          // Check if sessionId is available at click time
+          if (!effectiveSessionId.value) {
+            console.error('SessionId validation failed:', {
+              propSessionId: props.sessionId,
+              resultsSessionId: props.results?.session_id,
+              effectiveSessionId: effectiveSessionId.value
+            })
+            notification.warning({
+              message: t('research.editFailed'),
+              description: 'Session ID is not available. Please refresh the page and try again.',
+              duration: 4
+            })
+            return
+          }
+          
+          openEditModal(heading, text, id)
+        })
+        
+        // Hover effects for entire heading
+        heading.addEventListener('mouseenter', () => {
+          const hasSessionIdNow = effectiveSessionId.value !== null
+          
+          heading.style.background = 'rgba(24, 144, 255, 0.1)'
+          heading.style.borderRadius = '4px'
+          heading.style.padding = '4px 8px'
+          
+          if (editIcon) {
+            if (hasSessionIdNow) {
+              editIcon.style.opacity = '1'
+              editIcon.style.transform = 'scale(1.2) translateY(-2px)'
+              editIcon.style.filter = 'none'
+            } else {
+              editIcon.style.opacity = '0.5'
+              editIcon.style.transform = 'scale(1.1) translateY(-1px)'
+              editIcon.style.filter = 'grayscale(100%)'
+            }
+          }
+        })
+        
+        heading.addEventListener('mouseleave', () => {
+          const hasSessionIdNow = effectiveSessionId.value !== null
+          
+          heading.style.background = 'none'
+          heading.style.padding = '0'
+          
+          if (editIcon) {
+            if (hasSessionIdNow) {
+              editIcon.style.opacity = '0.6'
+              editIcon.style.filter = 'none'
+            } else {
+              editIcon.style.opacity = '0.3'
+              editIcon.style.filter = 'grayscale(100%)'
+            }
+            editIcon.style.transform = 'scale(1) translateY(0)'
+          }
+        })
+      }
+    })
+  })
 }
 
 // NEW: Extract headings and emit to parent component
@@ -189,7 +349,8 @@ const extractAndEmitHeadings = (htmlContent) => {
 
   h2AndH3Elements.forEach((heading) => {
     const level = parseInt(heading.tagName.charAt(1))
-    const text = heading.textContent.trim()
+    // Remove edit icon from text for table of contents
+    const text = heading.textContent.replace('✏️', '').trim()
     const id = heading.id
 
     if (text && id) {
@@ -365,6 +526,300 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
     duration: 3
   })
 }
+
+// Extract section content based on heading
+const extractSectionContent = (headingId, htmlContent) => {
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = htmlContent
+  
+  const heading = tempDiv.querySelector(`#${headingId}`)
+  if (!heading) return ''
+  
+  let content = ''
+  let currentElement = heading.nextElementSibling
+  
+  // Collect content until next heading of same or higher level
+  while (currentElement) {
+    const tagName = currentElement.tagName
+    if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tagName)) {
+      const currentLevel = parseInt(tagName.charAt(1))
+      const headingLevel = parseInt(heading.tagName.charAt(1))
+      if (currentLevel <= headingLevel) break
+    }
+    content += currentElement.outerHTML
+    currentElement = currentElement.nextElementSibling
+  }
+  
+  return content
+}
+
+// Extract original markdown section
+const extractMarkdownSection = (headingText, originalMarkdown) => {
+  console.log('Extracting markdown section for:', headingText)
+  
+  if (!originalMarkdown) {
+    console.warn('No original markdown provided')
+    return ''
+  }
+  
+  const lines = originalMarkdown.split('\n')
+  let sectionStart = -1
+  let sectionEnd = lines.length
+  
+  // Find the section start
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('## ') && lines[i].includes(headingText)) {
+      sectionStart = i
+      console.log('Found section start at line:', i, lines[i])
+      break
+    }
+  }
+  
+  if (sectionStart === -1) {
+    console.warn('Section not found in markdown:', headingText)
+    return ''
+  }
+  
+  // Find the section end (next ## heading)
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('## ')) {
+      sectionEnd = i
+      console.log('Found section end at line:', i)
+      break
+    }
+  }
+  
+  const sectionMarkdown = lines.slice(sectionStart, sectionEnd).join('\n')
+  console.log('Extracted section markdown length:', sectionMarkdown.length)
+  
+  return sectionMarkdown
+}
+
+// Open edit modal for a section
+const openEditModal = (element, headingText, headingId) => {
+  console.log('Opening edit modal for section:', headingText, 'with ID:', headingId)
+  
+  const htmlContent = renderedMarkdown.value
+  const sectionContent = extractSectionContent(headingId, htmlContent)
+  const originalMarkdown = extractMarkdownSection(headingText, props.results.summary)
+  
+  console.log('Section data prepared:', {
+    id: headingId,
+    title: headingText,
+    contentLength: sectionContent.length,
+    markdownLength: originalMarkdown.length
+  })
+  
+  selectedSection.value = {
+    id: headingId,
+    title: headingText,
+    content: sectionContent,
+    originalMarkdown: originalMarkdown
+  }
+  
+  selectedElement.value = element
+  showEditModal.value = true
+}
+
+// Handle section edit submission
+const handleSectionEdit = async (editData) => {
+  // Validate sessionId before making API call
+  if (!effectiveSessionId.value) {
+    console.error('Session ID is missing or empty for edit request')
+    notification.error({
+      message: t('research.editFailed'),
+      description: 'Session ID is missing. Please refresh the page and try again.',
+      duration: 4
+    })
+    throw new Error('Session ID is missing or empty')
+  }
+
+  // Don't await this - handle it in background while modal shows progress
+  handleEditAsync(editData)
+}
+
+// Async handler that doesn't block the modal
+const handleEditAsync = async (editData) => {
+  try {
+    console.log('Making edit request with sessionId:', effectiveSessionId.value)
+    
+    // Define status update callback
+    const onStatusUpdate = (status, attempt, maxAttempts) => {
+      console.log(`Edit status: ${status} (${attempt}/${maxAttempts})`)
+      
+      // Update the modal loading stage based on status
+      if (editModalRef.value) {
+        if (status === 'polling' || status === 'processing') {
+          editModalRef.value.updateLoadingStage('polling', attempt, maxAttempts)
+        }
+      }
+    }
+    
+    const response = await factCheckService.editSection(effectiveSessionId.value, {
+      ...editData,
+      fullReport: props.results.summary
+    }, onStatusUpdate)
+    
+    console.log('Edit response received:', response)
+    
+    if (response.updated_section) {
+      console.log('Updated section content:', response.updated_section)
+      
+      // Notify modal of completion
+      if (editModalRef.value) {
+        editModalRef.value.updateLoadingStage('completed', 0, 0)
+      }
+      
+      // Update the results with the new section content
+      const updatedSummary = updateSectionInMarkdown(
+        props.results.summary,
+        editData.sectionTitle,
+        response.updated_section
+      )
+      
+      console.log('Summary updated, original length:', props.results.summary.length, 'new length:', updatedSummary.length)
+      
+      // Emit the update to parent component
+      emit('section-updated', {
+        ...props.results,
+        summary: updatedSummary
+      })
+      
+      // Auto-close modal after a brief success display
+      setTimeout(() => {
+        closeEditModal()
+        
+        // Show success notification after modal closes
+        notification.success({
+          message: t('research.editSuccess'),
+          description: t('research.editSuccessDescription'),
+          duration: 4,
+          placement: 'topRight'
+        })
+        
+        // Smooth scroll to the updated section
+        nextTick(() => {
+          if (selectedElement.value) {
+            selectedElement.value.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' 
+            })
+            
+            // Highlight the updated section briefly
+            selectedElement.value.style.background = 'linear-gradient(135deg, #e6f7ff, #bae7ff)'
+            selectedElement.value.style.transition = 'background 0.3s ease'
+            
+            setTimeout(() => {
+              selectedElement.value.style.background = ''
+            }, 2000)
+          }
+        })
+      }, 1500) // Show completed state for 1.5 seconds before closing
+      
+    } else {
+      console.warn('No updated_section in response:', response)
+      
+      // Reset modal state on error
+      if (editModalRef.value) {
+        editModalRef.value.resetModalState()
+      }
+      
+      notification.warning({
+        message: 'Edit completed but no content received',
+        description: 'The server processed your edit but returned no updated content.',
+        duration: 4
+      })
+    }
+  } catch (error) {
+    console.error('Section edit failed:', error)
+    
+    // Reset modal state on error
+    if (editModalRef.value) {
+      editModalRef.value.resetModalState()
+    }
+    
+    // Handle error notification in modal or parent
+    notification.error({
+      message: t('research.editFailed'),
+      description: error.message || t('research.editFailedDescription'),
+      duration: 6
+    })
+  }
+}
+
+// Update a section in the markdown content
+const updateSectionInMarkdown = (originalMarkdown, sectionTitle, newSectionContent) => {
+  console.log('Updating section:', sectionTitle)
+  console.log('Original markdown length:', originalMarkdown.length)
+  console.log('New section content:', newSectionContent.substring(0, 200) + '...')
+  
+  const lines = originalMarkdown.split('\n')
+  let sectionStart = -1
+  let sectionEnd = lines.length
+  
+  // Find the section start - try different matching strategies
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line.startsWith('## ')) {
+      const headingText = line.substring(3).trim()
+      console.log(`Checking heading "${headingText}" against "${sectionTitle}"`)
+      
+      // Try exact match first
+      if (headingText === sectionTitle) {
+        sectionStart = i
+        console.log('Found exact match at line:', i)
+        break
+      }
+      
+      // Try partial match (in case of slight differences)
+      if (headingText.includes(sectionTitle) || sectionTitle.includes(headingText)) {
+        sectionStart = i
+        console.log('Found partial match at line:', i)
+        break
+      }
+    }
+  }
+  
+  if (sectionStart === -1) {
+    console.warn('Section not found:', sectionTitle)
+    console.log('Available sections:')
+    lines.forEach((line, i) => {
+      if (line.startsWith('## ')) {
+        console.log(`  Line ${i}: ${line}`)
+      }
+    })
+    return originalMarkdown
+  }
+  
+  // Find the section end (next ## heading)
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('## ')) {
+      sectionEnd = i
+      console.log('Found section end at line:', i)
+      break
+    }
+  }
+  
+  console.log(`Section found: lines ${sectionStart} to ${sectionEnd}`)
+  
+  // Replace the section
+  const beforeSection = lines.slice(0, sectionStart)
+  const afterSection = lines.slice(sectionEnd)
+  const newSection = newSectionContent.split('\n')
+  
+  const result = [...beforeSection, ...newSection, ...afterSection].join('\n')
+  console.log('Updated markdown length:', result.length)
+  
+  return result
+}
+
+// Close edit modal
+const closeEditModal = () => {
+  showEditModal.value = false
+  selectedSection.value = {}
+  selectedElement.value = null
+}
+
 </script>
 
 <style scoped>
@@ -474,6 +929,24 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
   margin: 28px 0 12px 0;
   scroll-margin-top: 80px;
   text-align: center;
+  transition: all 0.2s ease;
+}
+
+.markdown-content :deep(h2.editable-heading) {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.markdown-content :deep(.edit-icon) {
+  font-size: 0.7em;
+  opacity: 0.6;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin-left: 8px;
+  display: inline-block;
+  transform: scale(1) translateY(0);
+  user-select: none;
+  pointer-events: none;
 }
 
 .markdown-content :deep(h3) {

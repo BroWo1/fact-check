@@ -1,7 +1,7 @@
 <template>
   <div class="saved-analyses-dropdown">
-    <Button 
-      class="dropdown-trigger" 
+    <Button
+      class="dropdown-trigger"
       @click="toggleDropdown"
       :class="{ 'has-analyses': hasAnalyses }"
     >
@@ -9,12 +9,12 @@
       <span v-if="hasAnalyses" class="analysis-count">({{ savedAnalyses.length }})</span>
       <span class="dropdown-arrow" :class="{ 'open': isOpen }">▼</span>
     </Button>
-    
+
     <transition name="dropdown-fade">
       <div v-if="isOpen" class="dropdown-menu" @click.stop>
         <div class="dropdown-header">
           <h3>{{ t('savedAnalyses.recentAnalyses') }}</h3>
-          <Button 
+          <Button
             v-if="hasAnalyses"
             class="clear-all-btn"
             size="small"
@@ -23,14 +23,14 @@
             {{ t('savedAnalyses.clearAll') }}
           </Button>
         </div>
-        
+
         <div v-if="!hasAnalyses" class="empty-state">
           <p>{{ t('savedAnalyses.noAnalyses') }}</p>
         </div>
-        
+
         <div v-else class="analyses-list">
-          <div 
-            v-for="analysis in recentAnalyses" 
+          <div
+            v-for="analysis in recentAnalyses"
             :key="analysis.id"
             class="analysis-card"
             @click="selectAnalysis(analysis)"
@@ -44,7 +44,7 @@
                   {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : 'Research' }}
                 </span>
               </div>
-              <Button 
+              <Button
                 class="card-delete-btn"
                 size="small"
                 @click.stop="deleteAnalysis(analysis.id)"
@@ -52,12 +52,12 @@
                 ✕
               </Button>
             </div>
-            
+
             <div class="card-content">
               <div class="card-claim">
                 {{ formatAnalysisForDisplay(analysis).shortClaim }}
               </div>
-              
+
               <div class="card-meta">
                 <div class="card-result" v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict">
                   <span class="result-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
@@ -75,7 +75,7 @@
             </div>
           </div>
         </div>
-        
+
         <div v-if="savedAnalyses.length > 10" class="show-more">
           <Button class="show-more-btn" @click="showAllAnalyses">
             {{ t('savedAnalyses.showMore') }} ({{ savedAnalyses.length - 10 }} {{ t('savedAnalyses.more') }})
@@ -83,10 +83,10 @@
         </div>
       </div>
     </transition>
-    
-    <div 
-      v-if="isOpen" 
-      class="dropdown-backdrop" 
+
+    <div
+      v-if="isOpen"
+      class="dropdown-backdrop"
       @click="closeDropdown"
     ></div>
 
@@ -521,7 +521,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #fafafa;
+  background: #ffffff;
 }
 
 /* Dropdown animation */
@@ -554,73 +554,73 @@ onUnmounted(() => {
     margin: 0;
     transform: translateY(8px);
   }
-  
+
   .dropdown-header {
     padding: 8px 12px;
   }
-  
+
   .dropdown-header h3 {
     font-size: 15px;
   }
-  
+
   .analyses-list {
     padding: 6px;
     gap: 5px;
   }
-  
+
   .analysis-card {
     padding: 8px 10px;
   }
-  
+
   .card-header {
     margin-bottom: 3px;
   }
-  
+
   .mode-icon {
     font-size: 15px;
   }
-  
+
   .mode-text {
     font-size: 12px;
   }
-  
+
   .card-delete-btn {
     width: 22px;
     height: 22px;
     font-size: 11px;
   }
-  
+
   .card-content {
     gap: 3px;
   }
-  
+
   .card-claim {
     font-size: 14px;
     line-height: 1.3;
   }
-  
+
   .card-meta {
     gap: 12px;
   }
-  
+
   .card-result {
     font-size: 12px;
     gap: 5px;
   }
-  
+
   .result-icon {
     font-size: 13px;
   }
-  
+
   .card-date {
     font-size: 12px;
   }
-  
+
   .empty-state {
     margin: 6px;
     padding: 24px 12px;
   }
-  
+
   .show-more {
     margin: 0 6px 6px 6px;
     padding: 6px 12px;

@@ -79,7 +79,7 @@
     "startNewResearch": "Start New Research",
     "copy": "Copy Report",
     "download": "Download TXT",
-    "editSection": "Edit Section",
+    "editSection": "AI Edit Section",
     "editPrompt": "Edit Instructions",
     "editPromptPlaceholder": "Describe how you'd like to refine or expand this section...",
     "submitEdit": "Apply Edit",

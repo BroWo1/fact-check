@@ -1,48 +1,39 @@
 <template>
-  <Transition name="modal" appear>
-    <div v-if="visible" class="edit-modal-overlay" @click="handleOverlayClick">
-      <div class="edit-modal" :style="modalPosition" @click.stop>
-        <!-- Loading overlay when submitting -->
-        <div v-if="isSubmitting" class="modal-loading-overlay" :class="{ 'completed': loadingStage === 'completed' }">
-          <div class="modal-loading-content">
-            <div v-if="loadingStage !== 'completed'" class="large-spinner"></div>
-            <div v-else class="completion-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#52c41a" stroke-width="2" />
-                <path d="m9 12 2 2 4-4" stroke="#52c41a" stroke-width="2" stroke-linecap="round"
+  <Transition name="inline-expand" appear @enter="onEnter" @leave="onLeave">
+    <div v-if="visible" class="inline-edit-wrapper">
+      <div class="inline-edit-container">
+        <div class="inline-edit-content" :class="{ 'submitting': isSubmitting }">
+          <!-- Loading overlay when submitting -->
+          <div v-if="isSubmitting" class="inline-loading-overlay"
+            :class="{ 'completed': loadingStage === 'completed' }">
+            <div class="inline-loading-content">
+              <div v-if="loadingStage !== 'completed'" class="large-spinner"></div>
+              <div v-else class="completion-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="#52c41a" stroke-width="2" />
+                  <path d="m9 12 2 2 4-4" stroke="#52c41a" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </div>
+              <h4 class="loading-title">{{ loadingTitle }}</h4>
+              <p class="loading-description">{{ loadingDescription }}</p>
+            </div>
+          </div>
+
+          <div class="inline-edit-header">
+            <h3 class="inline-edit-title">{{ t('research.editSection') }}</h3>
+            <button class="close-button" @click="closeModal">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M12 4l-8 8m0-8l8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"
                   stroke-linejoin="round" />
               </svg>
-            </div>
-            <h4 class="loading-title">{{ loadingTitle }}</h4>
-            <p class="loading-description">{{ loadingDescription }}</p>
-            <!--
-            <div v-if="loadingStage !== 'completed'" class="progress-bar">
-              <div class="progress-fill"></div>
-            </div>
-            -->
+            </button>
           </div>
-        </div>
 
-        <div class="edit-modal-header">
-          <h3 class="edit-modal-title">{{ t('research.editSection') }}</h3>
-          <button class="close-button" @click="closeModal">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M12 4l-8 8m0-8l8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="edit-modal-content" :class="{ 'submitting': isSubmitting }">
-          <div class="section-preview">
-            <h4 class="section-title">{{ sectionData.title }}</h4>
-            <div class="section-text" v-html="sectionData.content"></div>
-          </div>
 
           <div class="edit-form">
-            <label class="form-label">{{ t('research.editPrompt') }}</label>
             <textarea v-model="editPrompt" class="edit-textarea" :placeholder="t('research.editPromptPlaceholder')"
-              rows="4" @keydown.ctrl.enter="submitEdit" @keydown.meta.enter="submitEdit"
+              rows="3" @keydown.ctrl.enter="submitEdit" @keydown.meta.enter="submitEdit"
               :disabled="isSubmitting"></textarea>
 
             <div class="form-actions">
@@ -90,10 +81,6 @@ const props = defineProps({
       id: '',
       originalMarkdown: ''
     })
-  },
-  targetElement: {
-    type: Object,
-    default: null
   }
 })
 
@@ -102,7 +89,6 @@ const emit = defineEmits(['close', 'submit-edit'])
 const editPrompt = ref('')
 const isSubmitting = ref(false)
 const loadingStage = ref('submitting') // 'submitting', 'processing', 'polling', 'completed'
-const pollingProgress = ref({ current: 0, max: 0 })
 
 // Dynamic loading messages based on stage
 const loadingTitle = computed(() => {
@@ -136,16 +122,14 @@ const loadingDescription = computed(() => {
 })
 
 // Expose method to update loading stage from parent
-const updateLoadingStage = (stage, current = 0, max = 0) => {
+const updateLoadingStage = (stage) => {
   loadingStage.value = stage
-  pollingProgress.value = { current, max }
 }
 
 // Expose method to reset modal state
 const resetModalState = () => {
   isSubmitting.value = false
   loadingStage.value = 'submitting'
-  pollingProgress.value = { current: 0, max: 0 }
 }
 
 // Expose the methods to parent component
@@ -154,23 +138,12 @@ defineExpose({
   resetModalState
 })
 
-// Always center the modal on screen
-const modalPosition = computed(() => {
-  return {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-  }
-})
-
 // Clear form when modal closes
 watch(() => props.visible, (newVisible) => {
   if (!newVisible) {
     editPrompt.value = ''
     isSubmitting.value = false
     loadingStage.value = 'submitting'
-    pollingProgress.value = { current: 0, max: 0 }
   } else {
     // Focus the textarea when modal opens
     nextTick(() => {
@@ -182,16 +155,53 @@ watch(() => props.visible, (newVisible) => {
   }
 })
 
-const handleOverlayClick = (event) => {
-  if (event.target === event.currentTarget) {
-    closeModal()
-  }
-}
-
 const closeModal = () => {
   if (!isSubmitting.value) {
     emit('close')
   }
+}
+
+// Transition hooks for smooth height animation
+const onEnter = (el) => {
+  const content = el.querySelector('.inline-edit-content')
+  el.style.height = '0'
+  el.style.opacity = '0'
+  if (content) {
+    content.style.opacity = '0'
+    content.style.filter = 'blur(4px)'
+    content.style.transition = 'opacity 0.3s ease 0.1s, filter 0.3s ease 0.1s' // Delay content animation
+  }
+  el.offsetHeight // force reflow
+  el.style.transition = 'height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease-out'
+  el.style.height = el.scrollHeight + 'px'
+  el.style.opacity = '1'
+  
+  // Trigger content animation after a small delay
+  if (content) {
+    setTimeout(() => {
+      content.style.opacity = '1'
+      content.style.filter = 'blur(0)'
+    }, 50)
+  }
+}
+
+const onLeave = (el) => {
+  const content = el.querySelector('.inline-edit-content')
+  el.style.height = el.scrollHeight + 'px'
+  el.style.opacity = '1'
+  if (content) {
+    content.style.opacity = '1'
+    content.style.filter = 'blur(0)'
+  }
+  el.offsetHeight // force reflow
+  el.style.transition = 'height 0.35s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.35s ease-in'
+  if (content) {
+    content.style.transition = 'opacity 0.2s ease, filter 0.2s ease'
+    content.style.opacity = '0'
+    content.style.filter = 'blur(4px)'
+  }
+  el.style.height = '0'
+  el.style.opacity = '0'
 }
 
 const submitEdit = async () => {
@@ -261,290 +271,236 @@ const submitEdit = async () => {
   font-style: normal;
 }
 
-.edit-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(8px);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: overlayFadeIn 0.3s ease-out;
-}
-
-@keyframes overlayFadeIn {
-  from {
-    opacity: 0;
-    backdrop-filter: blur(0px);
-  }
-
-  to {
-    opacity: 1;
-    backdrop-filter: blur(8px);
-  }
-}
-
-@keyframes overlayFadeOut {
-  from {
-    opacity: 1;
-    backdrop-filter: blur(8px);
-  }
-
-  to {
-    opacity: 0;
-    backdrop-filter: blur(0px);
-  }
-}
-
-/* Modal transition animations - similar to Ant Design Modal */
-.modal-enter-active {
-  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.modal-leave-active {
-  transition: all 0.2s cubic-bezier(0.755, 0.05, 0.855, 0.06);
-}
-
-.modal-enter-from {
-  opacity: 0;
-}
-
-.modal-enter-to {
-  opacity: 1;
-}
-
-.modal-leave-from {
-  opacity: 1;
-}
-
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .edit-modal {
-  transform: translate(-50%, -50%) scale(0.2);
-  opacity: 0;
-}
-
-.modal-enter-to .edit-modal {
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 1;
-}
-
-.modal-leave-from .edit-modal {
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 1;
-}
-
-.modal-leave-to .edit-modal {
-  transform: translate(-50%, -50%) scale(0.2);
-  opacity: 0;
-}
-
-.edit-modal {
-  background: #ffffff;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 420px;
-  max-width: 90vw;
-  max-height: 80vh;
+/* Inline edit container with smooth transitions */
+.inline-edit-container {
+  position: relative;
+  background-color: #fafafa; 
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform-origin: center top;
+  will-change: transform, opacity;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth wrapper transition with JavaScript height animation */
+.inline-edit-wrapper {
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+/* Enhanced transition animations - handled by JavaScript hooks */
+.inline-expand-enter-active,
+.inline-expand-leave-active {
+  /* Transitions are handled by JavaScript hooks for smoother height animation */
+}
+
+.inline-edit-content {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   position: relative;
-  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  min-height: 0;
+  opacity: 1;
+  filter: blur(0);
+  transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
 }
 
-.modal-loading-overlay {
+.inline-edit-content.submitting {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.inline-loading-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  animation: loadingFadeIn 0.3s ease-out;
+  animation: loadingFadeIn 0.4s ease-out;
 }
 
 @keyframes loadingFadeIn {
   from {
     opacity: 0;
     backdrop-filter: blur(0);
+    transform: scale(0.95);
   }
 
   to {
     opacity: 1;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
+    transform: scale(1);
   }
 }
 
-.modal-loading-content {
+.inline-loading-content {
   text-align: center;
-  padding: 48px 24px;
-  max-width: 300px;
-  animation: contentSlideIn 0.4s ease-out 0.2s both;
+  padding: 32px 20px;
+  max-width: 280px;
+  animation: contentSlideIn 0.5s ease-out 0.15s both;
 }
 
 @keyframes contentSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(16px) scale(0.95);
+    filter: blur(1px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 
 .large-spinner {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border: 3px solid #e6f7ff;
   border-top: 3px solid #1890ff;
   border-radius: 50%;
-  animation: spin 1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-  margin: 0 auto 24px;
+  animation: spin 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  margin: 0 auto 20px;
 }
 
 .loading-title {
   font-family: 'Playfair Display', 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #000000;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   letter-spacing: -0.3px;
 }
 
 .loading-description {
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
+  font-size: 13px;
   color: #666666;
-  margin: 0 0 24px 0;
+  margin: 0;
   line-height: 1.6;
   opacity: 0.9;
 }
 
-.progress-bar {
-  width: 100%;
-  height: 4px;
-  background: #f0f0f0;
-  border-radius: 2px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #1890ff 0%, #40a9ff 50%, #1890ff 100%);
-  background-size: 200% 100%;
-  border-radius: 2px;
-  animation: progressShimmer 2s linear infinite;
-}
-
-@keyframes progressShimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.modal-loading-overlay.completed {
+.inline-loading-overlay.completed {
   background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
 }
 
 .completion-icon {
-  margin: 0 auto 24px;
-  animation: successBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin: 0 auto 20px;
+  animation: successBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .completion-icon svg {
-  filter: drop-shadow(0 4px 12px rgba(82, 196, 26, 0.25));
+  filter: drop-shadow(0 4px 16px rgba(82, 196, 26, 0.3));
 }
 
 @keyframes successBounce {
   0% {
     transform: scale(0) rotate(-180deg);
     opacity: 0;
+    filter: blur(2px);
   }
 
   50% {
     transform: scale(1.15) rotate(10deg);
+    filter: blur(0);
   }
 
   100% {
     transform: scale(1) rotate(0deg);
     opacity: 1;
+    filter: blur(0);
   }
 }
 
-.modal-loading-overlay.completed .loading-title {
+.inline-loading-overlay.completed .loading-title {
   color: #52c41a;
-  animation: titleSuccess 0.5s ease-out 0.3s both;
+  animation: titleSuccess 0.6s ease-out 0.4s both;
 }
 
-.modal-loading-overlay.completed .loading-description {
+.inline-loading-overlay.completed .loading-description {
   color: #389e0d;
-  animation: descriptionFade 0.5s ease-out 0.5s both;
+  animation: descriptionFade 0.6s ease-out 0.6s both;
 }
 
 @keyframes titleSuccess {
   0% {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px) scale(0.95);
+    filter: blur(1px);
   }
 
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 
 @keyframes descriptionFade {
   0% {
     opacity: 0;
+    transform: translateY(8px);
+    filter: blur(1px);
   }
 
   100% {
     opacity: 0.9;
+    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
-.edit-modal-header {
+.inline-edit-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 20px;
   background: #fafafa;
+  max-height: 64px;
+  min-height: 64px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.edit-modal-title {
-  font-family: 'Playfair Display', 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 18px;
-  font-weight: 600;
-  color: #000000;
-  margin: 0;
-  letter-spacing: -0.3px;
+.inline-edit-title {
+  font-family: 'Playfair Display', 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  margin: 0 !important;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
 }
 
 .close-button {
   background: transparent;
   border: none;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
   color: #999999;
   border-radius: 6px;
@@ -552,8 +508,8 @@ const submitEdit = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
 }
 
 .close-button:hover {
@@ -570,96 +526,21 @@ const submitEdit = async () => {
   transform: rotate(90deg);
 }
 
-.edit-modal-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: opacity 0.3s ease, filter 0.3s ease;
-}
-
-.edit-modal-content.submitting {
-  opacity: 0.4;
-  pointer-events: none;
-  filter: blur(1px);
-}
-
-.section-preview {
-  background: #fafafa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 16px;
-  max-height: 150px;
-  overflow-y: auto;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.section-preview::-webkit-scrollbar {
-  width: 4px;
-}
-
-.section-preview::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 2px;
-}
-
-.section-preview::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 2px;
-}
-
-.section-preview::-webkit-scrollbar-thumb:hover {
-  background: #b0b0b0;
-}
-
-.section-title {
-  font-family: 'Playfair Display', 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #000000;
-  margin: 0 0 12px 0;
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.section-text {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #333333;
-}
-
-.section-text :deep(p) {
-  margin: 10px 0;
-}
-
-.section-text :deep(ul),
-.section-text :deep(ol) {
-  margin: 10px 0;
-  padding-left: 24px;
-}
-
-.section-text :deep(li) {
-  margin: 6px 0;
-}
 
 .edit-form {
-  flex: 1;
+  padding: 0 20px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  background-color: #fafafa;
 }
 
 .form-label {
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #000000;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   display: block;
   letter-spacing: -0.2px;
 }
@@ -667,16 +548,17 @@ const submitEdit = async () => {
 .edit-textarea {
   width: 100%;
   min-height: 100px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
   transition: all 0.2s ease;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-top: 16px;
 }
 
 .edit-textarea:focus {
@@ -699,11 +581,8 @@ const submitEdit = async () => {
 
 .form-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: flex-end;
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
 }
 
 .submit-button {
@@ -711,18 +590,18 @@ const submitEdit = async () => {
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 10px 24px;
+  padding: 8px 20px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-width: 130px;
-  min-height: 40px;
+  gap: 6px;
+  min-width: 110px;
+  min-height: 36px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
@@ -770,12 +649,13 @@ const submitEdit = async () => {
 .loading-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+
 }
 
 .loading-spinner {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top: 2px solid #ffffff;
   border-radius: 50%;
@@ -784,12 +664,12 @@ const submitEdit = async () => {
 
 .loading-dots {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .loading-dots span {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   background: #ffffff;
   border-radius: 50%;
   animation: loadingBounce 1.4s ease-in-out infinite both;
@@ -818,14 +698,14 @@ const submitEdit = async () => {
 
   40% {
     opacity: 1;
-    transform: scale(1.2) translateY(-5px);
+    transform: scale(1.2) translateY(-4px);
   }
 }
 
 .loading-text {
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.95;
-  margin-left: 4px;
+  margin-left: 3px;
   font-weight: 500;
 }
 
@@ -834,12 +714,12 @@ const submitEdit = async () => {
   color: #666666;
   border: 1px solid #e9ecef;
   border-radius: 8px;
-  padding: 10px 24px;
+  padding: 8px 20px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 40px;
+  min-height: 36px;
   font-weight: 500;
   letter-spacing: -0.2px;
 }
@@ -870,122 +750,92 @@ const submitEdit = async () => {
 }
 
 @media (max-width: 768px) {
-  .edit-modal {
-    width: 95vw;
-    max-height: 85vh;
+  .inline-edit-container {
+    margin: 8px 0;
   }
 
-  .edit-modal-header {
-    padding: 16px 20px;
+  .inline-edit-header {
+    padding: 12px 16px;
   }
 
-  .edit-modal-title {
-    font-size: 16px;
+  .inline-edit-title {
+    font-size: 15px;
   }
 
   .close-button {
-    width: 28px;
-    height: 28px;
-    padding: 6px;
-  }
-
-  .edit-modal-content {
-    padding: 20px;
-    gap: 16px;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
   }
 
   .section-preview {
-    padding: 14px;
-    max-height: 120px;
+    margin: 12px 16px;
+    padding: 12px;
+    max-height: 100px;
   }
 
   .section-title {
-    font-size: 15px;
-    margin-bottom: 10px;
+    font-size: 14px;
+    margin-bottom: 8px;
   }
 
   .section-text {
-    font-size: 13px;
+    font-size: 12px;
+  }
+
+  .edit-form {
+    padding: 16px;
+    gap: 12px;
   }
 
   .form-label {
-    font-size: 13px;
-    margin-bottom: 6px;
+    font-size: 12px;
+    margin-bottom: 5px;
   }
 
   .edit-textarea {
-    font-size: 13px;
-    min-height: 85px;
-    padding: 10px;
+    font-size: 12px;
+    min-height: 70px;
+    padding: 9px;
   }
 
   .form-actions {
     flex-direction: column;
-    gap: 10px;
-    padding-top: 16px;
+    gap: 8px;
+    padding-top: 12px;
   }
 
   .submit-button,
   .cancel-button {
     width: 100%;
-    min-height: 38px;
-    font-size: 13px;
-    padding: 10px 20px;
+    min-height: 34px;
+    font-size: 12px;
+    padding: 8px 16px;
   }
 
-  .modal-loading-content {
-    padding: 36px 20px;
-    max-width: 260px;
+  .inline-loading-content {
+    padding: 24px 16px;
+    max-width: 240px;
   }
 
   .loading-title {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .loading-description {
-    font-size: 13px;
-    margin-bottom: 20px;
+    font-size: 12px;
   }
 
   .large-spinner {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 20px;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 16px;
   }
 
   .completion-icon svg {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
   }
-}
-
-/* Additional hover and interaction animations */
-@media (hover: hover) {
-  .edit-modal {
-    transform-origin: center center;
-  }
-
-  .edit-modal:hover {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-}
-
-/* Smooth scrollbar styling to match other components */
-.edit-modal-content::-webkit-scrollbar {
-  width: 4px;
-}
-
-.edit-modal-content::-webkit-scrollbar-track {
-  background: #f8f9fa;
-}
-
-.edit-modal-content::-webkit-scrollbar-thumb {
-  background: #e9ecef;
-  border-radius: 2px;
-}
-
-.edit-modal-content::-webkit-scrollbar-thumb:hover {
-  background: #d0d0d0;
 }
 
 /* Focus visible styles for accessibility */

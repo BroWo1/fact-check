@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="research-content">
+    <div class="research-content" :class="{ 'editing-mode': showInlineEdit }">
       <div class="markdown-content" v-html="renderedMarkdown"></div>
     </div>
 
@@ -80,26 +80,37 @@
       </ul>
     </div>
   </div>
-  
-  <!-- Add the edit modal component -->
-      <SectionEditModal
-      v-if="showEditModal"
-      ref="editModalRef"
-      :visible="showEditModal"
+
+  <!-- Inline edit component - will be dynamically positioned -->
+  <Teleport :to="teleportTarget" :disabled="!teleportTarget">
+    <SectionEditInline
+      ref="inlineEditRef"
+      :visible="showInlineEdit"
       :sectionData="selectedSection"
-      :targetElement="selectedElement"
-      @close="closeEditModal"
+      @close="closeInlineEdit"
       @submit-edit="handleSectionEdit"
     />
+  </Teleport>
+
+  <!-- Add the edit modal component (fallback) -->
+  <SectionEditModal
+    ref="editModalRef"
+    :visible="showEditModal"
+    :sectionData="selectedSection"
+    :targetElement="selectedElement"
+    @close="closeEditModal"
+    @submit-edit="handleSectionEdit"
+  />
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { notification } from 'ant-design-vue'
 import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 import SectionEditModal from './SectionEditModal.vue'
+import SectionEditInline from './SectionEditInline.vue'
 import factCheckService from '../services/factCheckService'
 
 const { t } = useI18n()
@@ -123,14 +134,14 @@ const props = defineProps({
 const effectiveSessionId = computed(() => {
   const propSessionId = props.sessionId && props.sessionId.trim() !== '' ? props.sessionId : null
   const resultsSessionId = props.results?.session_id || null
-  
+
   const effective = propSessionId || resultsSessionId
   console.log('🔍 Effective sessionId calculation:', {
     propSessionId,
     resultsSessionId,
     effective
   })
-  
+
   return effective
 })
 
@@ -139,9 +150,13 @@ const emit = defineEmits(['headings-extracted', 'section-updated'])
 const copying = ref(false)
 const isSourcesCollapsed = ref(true) // Start collapsed by default
 const showEditModal = ref(false)
+const showInlineEdit = ref(false)
 const selectedSection = ref({})
 const selectedElement = ref(null)
 const editModalRef = ref(null)
+const inlineEditRef = ref(null)
+const editingSection = ref(null) // Track which section is being edited for shading
+const teleportTarget = ref(null) // Target element for teleporting the modal
 
 // Initialize deduplicator once for the entire component
 const deduplicator = useCitationDeduplicator()
@@ -183,7 +198,7 @@ const renderedMarkdown = computed(() => {
 
   // Reset deduplicator for fresh calculation
   deduplicator.reset()
-  
+
   // Configure marked options
   marked.setOptions({
     breaks: true,
@@ -193,7 +208,7 @@ const renderedMarkdown = computed(() => {
   })
 
   const htmlContent = addIdsToHeadings(removeDuplicateCitations(marked(props.results.summary)))
-  
+
   // Make this computed reactive to sessionId changes
   void effectiveSessionId.value
 
@@ -214,7 +229,7 @@ const addIdsToHeadings = (htmlContent) => {
   tempDiv.innerHTML = htmlContent
 
   const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6')
-  
+
   // Check if sessionId is available for edit functionality
   const hasSessionId = effectiveSessionId.value !== null
 
@@ -223,7 +238,7 @@ const addIdsToHeadings = (htmlContent) => {
     const id = `heading-${index}-${text.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
     heading.id = id
     heading.style.scrollMarginTop = '80px'
-    
+
     // Add edit functionality to H2 headings - always show for visual consistency
     if (heading.tagName === 'H2') {
       heading.style.position = 'relative'
@@ -241,20 +256,20 @@ const addIdsToHeadings = (htmlContent) => {
 const setupEditHandlers = () => {
   nextTick(() => {
     const editableHeadings = document.querySelectorAll('.markdown-content h2.editable-heading')
-    
+
     editableHeadings.forEach((heading) => {
       if (!heading.dataset.hasHandler) {
         heading.dataset.hasHandler = 'true'
-        
+
         // Add edit icon right after the title text
         let editIcon = heading.querySelector('.edit-icon')
         if (!editIcon) {
           editIcon = document.createElement('span')
-          editIcon.innerHTML = ' ✏️'
+          editIcon.innerHTML = ' ✏️ Edit'
           editIcon.className = 'edit-icon'
           heading.appendChild(editIcon)
         }
-        
+
         // Update icon appearance based on sessionId availability
         const hasSessionId = effectiveSessionId.value !== null
         if (hasSessionId) {
@@ -264,18 +279,25 @@ const setupEditHandlers = () => {
           editIcon.style.opacity = '0.3'
           editIcon.style.filter = 'grayscale(100%)'
         }
-        
+
         // Click handler on the entire heading
         heading.addEventListener('click', (event) => {
           event.preventDefault()
-          const text = heading.textContent.replace('✏️', '').trim()
+          const text = heading.textContent.replace('✏️ Edit', '').trim()
           const id = heading.id
-          
+
+          // Check if modal is already open for this section
+          if (showInlineEdit.value && editingSection.value === id) {
+            // Close the modal if clicking the same heading
+            closeInlineEdit()
+            return
+          }
+
           // Debug logging
           console.log('H2 heading clicked:', text)
           console.log('SessionId at click time:', props.sessionId)
           console.log('Props object:', props)
-          
+
           // Check if sessionId is available at click time
           if (!effectiveSessionId.value) {
             console.error('SessionId validation failed:', {
@@ -290,18 +312,18 @@ const setupEditHandlers = () => {
             })
             return
           }
-          
-          openEditModal(heading, text, id)
+
+          openInlineEditComponent(heading, text, id)
         })
-        
+
         // Hover effects for entire heading
         heading.addEventListener('mouseenter', () => {
           const hasSessionIdNow = effectiveSessionId.value !== null
-          
+
           heading.style.background = 'rgba(24, 144, 255, 0.1)'
           heading.style.borderRadius = '4px'
           heading.style.padding = '4px 8px'
-          
+
           if (editIcon) {
             if (hasSessionIdNow) {
               editIcon.style.opacity = '1'
@@ -314,13 +336,13 @@ const setupEditHandlers = () => {
             }
           }
         })
-        
+
         heading.addEventListener('mouseleave', () => {
           const hasSessionIdNow = effectiveSessionId.value !== null
-          
+
           heading.style.background = 'none'
           heading.style.padding = '0'
-          
+
           if (editIcon) {
             if (hasSessionIdNow) {
               editIcon.style.opacity = '0.6'
@@ -350,7 +372,7 @@ const extractAndEmitHeadings = (htmlContent) => {
   h2AndH3Elements.forEach((heading) => {
     const level = parseInt(heading.tagName.charAt(1))
     // Remove edit icon from text for table of contents
-    const text = heading.textContent.replace('✏️', '').trim()
+    const text = heading.textContent.replace('✏️ Edit', '').trim()
     const id = heading.id
 
     if (text && id) {
@@ -531,13 +553,13 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 const extractSectionContent = (headingId, htmlContent) => {
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = htmlContent
-  
+
   const heading = tempDiv.querySelector(`#${headingId}`)
   if (!heading) return ''
-  
+
   let content = ''
   let currentElement = heading.nextElementSibling
-  
+
   // Collect content until next heading of same or higher level
   while (currentElement) {
     const tagName = currentElement.tagName
@@ -549,23 +571,23 @@ const extractSectionContent = (headingId, htmlContent) => {
     content += currentElement.outerHTML
     currentElement = currentElement.nextElementSibling
   }
-  
+
   return content
 }
 
 // Extract original markdown section
 const extractMarkdownSection = (headingText, originalMarkdown) => {
   console.log('Extracting markdown section for:', headingText)
-  
+
   if (!originalMarkdown) {
     console.warn('No original markdown provided')
     return ''
   }
-  
+
   const lines = originalMarkdown.split('\n')
   let sectionStart = -1
   let sectionEnd = lines.length
-  
+
   // Find the section start
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith('## ') && lines[i].includes(headingText)) {
@@ -574,12 +596,12 @@ const extractMarkdownSection = (headingText, originalMarkdown) => {
       break
     }
   }
-  
+
   if (sectionStart === -1) {
     console.warn('Section not found in markdown:', headingText)
     return ''
   }
-  
+
   // Find the section end (next ## heading)
   for (let i = sectionStart + 1; i < lines.length; i++) {
     if (lines[i].startsWith('## ')) {
@@ -588,37 +610,90 @@ const extractMarkdownSection = (headingText, originalMarkdown) => {
       break
     }
   }
-  
+
   const sectionMarkdown = lines.slice(sectionStart, sectionEnd).join('\n')
   console.log('Extracted section markdown length:', sectionMarkdown.length)
-  
+
   return sectionMarkdown
 }
 
-// Open edit modal for a section
-const openEditModal = (element, headingText, headingId) => {
-  console.log('Opening edit modal for section:', headingText, 'with ID:', headingId)
-  
+// Open inline edit component for a section
+const openInlineEditComponent = (element, headingText, headingId) => {
+  console.log('Opening inline edit for section:', headingText, 'with ID:', headingId)
+
+  // If another inline edit is already open, close it first
+  if (showInlineEdit.value) {
+    closeInlineEdit()
+    // Wait for the close animation to complete before opening new one
+    setTimeout(() => {
+      openInlineEditInternal(element, headingText, headingId)
+    }, 350) // Match the close animation duration
+  } else {
+    openInlineEditInternal(element, headingText, headingId)
+  }
+}
+
+// Internal function to handle the actual opening logic
+const openInlineEditInternal = (element, headingText, headingId) => {
   const htmlContent = renderedMarkdown.value
   const sectionContent = extractSectionContent(headingId, htmlContent)
   const originalMarkdown = extractMarkdownSection(headingText, props.results.summary)
-  
+
   console.log('Section data prepared:', {
     id: headingId,
     title: headingText,
     contentLength: sectionContent.length,
     markdownLength: originalMarkdown.length
   })
-  
+
   selectedSection.value = {
     id: headingId,
     title: headingText,
     content: sectionContent,
     originalMarkdown: originalMarkdown
   }
-  
+
   selectedElement.value = element
-  showEditModal.value = true
+  editingSection.value = headingId
+
+  // Create a container element right after the clicked heading
+  createTeleportContainer(element)
+
+  showInlineEdit.value = true
+
+  // Highlight the entire section content after modal is positioned
+  nextTick(() => {
+    // Wait a bit more for the teleport and animations to settle
+    setTimeout(() => {
+      highlightSectionContent(element)
+    }, 350)
+  })
+}
+
+// Create a teleport container after the clicked heading
+const createTeleportContainer = (headingElement) => {
+  // Remove any existing teleport container
+  removeTeleportContainer()
+
+  // Create a new container element
+  const container = document.createElement('div')
+  container.id = 'inline-edit-teleport-target'
+  container.style.width = '100%'
+
+  // Insert the container right after the heading
+  headingElement.parentNode.insertBefore(container, headingElement.nextSibling)
+
+  // Set as teleport target
+  teleportTarget.value = '#inline-edit-teleport-target'
+}
+
+// Remove the teleport container
+const removeTeleportContainer = () => {
+  const existingContainer = document.getElementById('inline-edit-teleport-target')
+  if (existingContainer) {
+    existingContainer.remove()
+  }
+  teleportTarget.value = null
 }
 
 // Handle section edit submission
@@ -642,53 +717,53 @@ const handleSectionEdit = async (editData) => {
 const handleEditAsync = async (editData) => {
   try {
     console.log('Making edit request with sessionId:', effectiveSessionId.value)
-    
+
     // Define status update callback
     const onStatusUpdate = (status, attempt, maxAttempts) => {
       console.log(`Edit status: ${status} (${attempt}/${maxAttempts})`)
-      
+
       // Update the modal loading stage based on status
-      if (editModalRef.value) {
+      if (inlineEditRef.value) {
         if (status === 'polling' || status === 'processing') {
-          editModalRef.value.updateLoadingStage('polling', attempt, maxAttempts)
+          inlineEditRef.value.updateLoadingStage('polling', attempt, maxAttempts)
         }
       }
     }
-    
+
     const response = await factCheckService.editSection(effectiveSessionId.value, {
       ...editData,
       fullReport: props.results.summary
     }, onStatusUpdate)
-    
+
     console.log('Edit response received:', response)
-    
+
     if (response.updated_section) {
       console.log('Updated section content:', response.updated_section)
-      
+
       // Notify modal of completion
-      if (editModalRef.value) {
-        editModalRef.value.updateLoadingStage('completed', 0, 0)
+      if (inlineEditRef.value) {
+        inlineEditRef.value.updateLoadingStage('completed', 0, 0)
       }
-      
+
       // Update the results with the new section content
       const updatedSummary = updateSectionInMarkdown(
         props.results.summary,
         editData.sectionTitle,
         response.updated_section
       )
-      
+
       console.log('Summary updated, original length:', props.results.summary.length, 'new length:', updatedSummary.length)
-      
+
       // Emit the update to parent component
       emit('section-updated', {
         ...props.results,
         summary: updatedSummary
       })
-      
+
       // Auto-close modal after a brief success display
       setTimeout(() => {
-        closeEditModal()
-        
+        closeInlineEdit()
+
         // Show success notification after modal closes
         notification.success({
           message: t('research.editSuccess'),
@@ -696,34 +771,34 @@ const handleEditAsync = async (editData) => {
           duration: 4,
           placement: 'topRight'
         })
-        
+
         // Smooth scroll to the updated section
         nextTick(() => {
           if (selectedElement.value) {
-            selectedElement.value.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'center' 
+            selectedElement.value.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
             })
-            
+
             // Highlight the updated section briefly
             selectedElement.value.style.background = 'linear-gradient(135deg, #e6f7ff, #bae7ff)'
             selectedElement.value.style.transition = 'background 0.3s ease'
-            
+
             setTimeout(() => {
               selectedElement.value.style.background = ''
             }, 2000)
           }
         })
       }, 1500) // Show completed state for 1.5 seconds before closing
-      
+
     } else {
       console.warn('No updated_section in response:', response)
-      
+
       // Reset modal state on error
-      if (editModalRef.value) {
-        editModalRef.value.resetModalState()
+      if (inlineEditRef.value) {
+        inlineEditRef.value.resetModalState()
       }
-      
+
       notification.warning({
         message: 'Edit completed but no content received',
         description: 'The server processed your edit but returned no updated content.',
@@ -732,12 +807,12 @@ const handleEditAsync = async (editData) => {
     }
   } catch (error) {
     console.error('Section edit failed:', error)
-    
+
     // Reset modal state on error
-    if (editModalRef.value) {
-      editModalRef.value.resetModalState()
+    if (inlineEditRef.value) {
+      inlineEditRef.value.resetModalState()
     }
-    
+
     // Handle error notification in modal or parent
     notification.error({
       message: t('research.editFailed'),
@@ -752,25 +827,25 @@ const updateSectionInMarkdown = (originalMarkdown, sectionTitle, newSectionConte
   console.log('Updating section:', sectionTitle)
   console.log('Original markdown length:', originalMarkdown.length)
   console.log('New section content:', newSectionContent.substring(0, 200) + '...')
-  
+
   const lines = originalMarkdown.split('\n')
   let sectionStart = -1
   let sectionEnd = lines.length
-  
+
   // Find the section start - try different matching strategies
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (line.startsWith('## ')) {
       const headingText = line.substring(3).trim()
       console.log(`Checking heading "${headingText}" against "${sectionTitle}"`)
-      
+
       // Try exact match first
       if (headingText === sectionTitle) {
         sectionStart = i
         console.log('Found exact match at line:', i)
         break
       }
-      
+
       // Try partial match (in case of slight differences)
       if (headingText.includes(sectionTitle) || sectionTitle.includes(headingText)) {
         sectionStart = i
@@ -779,7 +854,7 @@ const updateSectionInMarkdown = (originalMarkdown, sectionTitle, newSectionConte
       }
     }
   }
-  
+
   if (sectionStart === -1) {
     console.warn('Section not found:', sectionTitle)
     console.log('Available sections:')
@@ -790,7 +865,7 @@ const updateSectionInMarkdown = (originalMarkdown, sectionTitle, newSectionConte
     })
     return originalMarkdown
   }
-  
+
   // Find the section end (next ## heading)
   for (let i = sectionStart + 1; i < lines.length; i++) {
     if (lines[i].startsWith('## ')) {
@@ -799,21 +874,131 @@ const updateSectionInMarkdown = (originalMarkdown, sectionTitle, newSectionConte
       break
     }
   }
-  
+
   console.log(`Section found: lines ${sectionStart} to ${sectionEnd}`)
-  
+
   // Replace the section
   const beforeSection = lines.slice(0, sectionStart)
   const afterSection = lines.slice(sectionEnd)
   const newSection = newSectionContent.split('\n')
-  
+
   const result = [...beforeSection, ...newSection, ...afterSection].join('\n')
   console.log('Updated markdown length:', result.length)
-  
+
   return result
 }
 
-// Close edit modal
+// Highlight the entire section content with subtle blue overlay
+const highlightSectionContent = (headingElement) => {
+  // Remove any existing highlights
+  const existingOverlay = document.querySelector('.section-highlight-overlay')
+  if (existingOverlay) {
+    existingOverlay.remove()
+  }
+
+  // Find the section bounds (skip teleport container)
+  let sectionEnd = null
+  let currentElement = headingElement.nextElementSibling
+  
+  while (currentElement) {
+    // Skip the teleport container
+    if (currentElement.id === 'inline-edit-teleport-target') {
+      currentElement = currentElement.nextElementSibling
+      continue
+    }
+    
+    const tagName = currentElement.tagName
+    if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tagName)) {
+      const currentLevel = parseInt(tagName.charAt(1))
+      const headingLevel = parseInt(headingElement.tagName.charAt(1))
+      if (currentLevel <= headingLevel) {
+        sectionEnd = currentElement
+        break
+      }
+    }
+    currentElement = currentElement.nextElementSibling
+  }
+
+  // Create overlay element
+  const overlay = document.createElement('div')
+  overlay.className = 'section-highlight-overlay'
+  
+  // Get current positions (after modal insertion)
+  const headingRect = headingElement.getBoundingClientRect()
+  const containerRect = headingElement.parentElement.getBoundingClientRect()
+  
+  // Find the actual section content start (after teleport container)
+  let sectionStartElement = headingElement.nextElementSibling
+  while (sectionStartElement && sectionStartElement.id === 'inline-edit-teleport-target') {
+    sectionStartElement = sectionStartElement.nextElementSibling
+  }
+  
+  let sectionStartRect
+  if (sectionStartElement) {
+    sectionStartRect = sectionStartElement.getBoundingClientRect()
+  } else {
+    sectionStartRect = headingRect
+  }
+  
+  let endRect
+  if (sectionEnd) {
+    endRect = sectionEnd.getBoundingClientRect()
+  } else {
+    // Use parent container's bottom if no next heading
+    endRect = { top: containerRect.bottom }
+  }
+  
+  // Position overlay to cover from heading to end, but account for teleport container
+  overlay.style.position = 'absolute'
+  overlay.style.left = '0'
+  overlay.style.right = '0'
+  overlay.style.top = (sectionStartRect.top - containerRect.top) + 'px'
+  overlay.style.height = (endRect.top - sectionStartRect.top) + 'px'
+  overlay.style.background = 'rgba(24, 144, 255, 0.08)'
+  overlay.style.borderRadius = '8px'
+  overlay.style.pointerEvents = 'none'
+  overlay.style.zIndex = '1'
+  overlay.style.transition = 'opacity 0.3s ease'
+  overlay.style.opacity = '0'
+  
+  // Add to parent container
+  const container = headingElement.closest('.research-content')
+  if (container) {
+    container.style.position = 'relative'
+    container.appendChild(overlay)
+    
+    // Fade in overlay
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1'
+    })
+  }
+}
+
+
+// Close inline edit component
+const closeInlineEdit = () => {
+  // Remove section highlighting overlay
+  const existingOverlay = document.querySelector('.section-highlight-overlay')
+  if (existingOverlay) {
+    existingOverlay.style.opacity = '0'
+    setTimeout(() => {
+      existingOverlay.remove()
+    }, 300)
+  }
+
+  // Start closing animation first
+  showInlineEdit.value = false
+
+  // Remove teleport container after animation completes
+  setTimeout(() => {
+    removeTeleportContainer()
+    selectedSection.value = {}
+    selectedElement.value = null
+    editingSection.value = null
+  }, 350) // Match SectionEditInline's leave animation duration
+}
+
+// Close edit modal (keep for fallback)
 const closeEditModal = () => {
   showEditModal.value = false
   selectedSection.value = {}
@@ -1268,6 +1453,23 @@ const closeEditModal = () => {
   top: 12px;
 }
 
+/* Editing mode styles - subtle highlighting */
+.research-content.editing-mode {
+  position: relative;
+}
+
+/* Highlight just the section being edited */
+.research-content.editing-mode .markdown-content h2.editable-heading {
+  background: rgba(24, 144, 255, 0.05) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  margin: 16px 0 !important;
+  border-left: 4px solid rgba(24, 144, 255, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.08) !important;
+  transition: all 0.3s ease !important;
+}
+
+
 @media (max-width: 768px) {
   .research-results {
     padding: 20px;
@@ -1341,5 +1543,17 @@ const closeEditModal = () => {
     font-size: 14px;
     min-width: 80px;
   }
+}
+</style>
+
+<!-- Section highlighting overlay styles -->
+<style>
+.section-highlight-overlay {
+  position: absolute;
+  background: rgba(24, 144, 255, 0.08);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.3s ease;
 }
 </style>

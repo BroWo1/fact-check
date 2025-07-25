@@ -79,7 +79,7 @@
     "startNewResearch": "开始新的研究",
     "copy": "复制报告",
     "download": "下载 TXT",
-    "editSection": "编辑段落",
+    "editSection": "AI 编辑段落",
     "editPrompt": "编辑指令",
     "editPromptPlaceholder": "描述您希望如何改进或扩展此段落...",
     "submitEdit": "应用编辑",

@@ -248,6 +248,62 @@ const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behav
 // Track if we've already attempted to load from UUID to prevent duplicates
 const hasAttemptedUuidLoad = ref(false)
 
+// Back to top functionality
+const showBackToTop = ref(false)
+const SCROLL_STORAGE_KEY = 'homeview-scroll-position'
+let scrollSaveTimeout = null
+
+const handleScroll = () => {
+  showBackToTop.value = window.scrollY > 300
+  
+  // Debounce scroll position saving to avoid excessive localStorage writes
+  if (scrollSaveTimeout) {
+    clearTimeout(scrollSaveTimeout)
+  }
+  
+  scrollSaveTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem(SCROLL_STORAGE_KEY, window.scrollY.toString())
+    } catch (error) {
+      console.warn('Failed to save scroll position:', error)
+    }
+  }, 150) // Save position after 150ms of scroll inactivity
+}
+
+const scrollToTop = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
+  
+  // Clear saved scroll position when user explicitly scrolls to top
+  try {
+    localStorage.removeItem(SCROLL_STORAGE_KEY)
+  } catch (error) {
+    console.warn('Failed to clear scroll position:', error)
+  }
+}
+
+const restoreScrollPosition = () => {
+  try {
+    const savedPosition = localStorage.getItem(SCROLL_STORAGE_KEY)
+    if (savedPosition) {
+      const position = parseInt(savedPosition, 10)
+      if (!isNaN(position) && position > 0) {
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          window.scrollTo({
+            top: position,
+            behavior: 'smooth' // Smooth animation instead of instant
+          })
+        })
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to restore scroll position:', error)
+  }
+}
+
 // Watch for saved analyses to be loaded, then check for UUID
 watch(savedAnalyses, (analyses) => {
   console.log('Saved analyses updated, count:', analyses.length)
@@ -388,6 +444,7 @@ onMounted(() => {
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
   document.addEventListener('click', handleClickOutside);
   window.addEventListener('resize', handleResize);
+  window.addEventListener('scroll', handleScroll);
 
   // Initialize session persistence service
   sessionPersistenceService.initialize()
@@ -401,14 +458,25 @@ onMounted(() => {
     hasAttemptedUuidLoad.value = true
     loadAnalysisFromUuid(uuid.value)
   }
+
+  // Restore scroll position after all initialization is complete
+  nextTick(() => {
+    setTimeout(() => {
+      restoreScrollPosition()
+    }, 100) // Small delay to ensure content is fully loaded
+  })
 })
 
 onUnmounted(() => {
   if (rotationInterval) {
     clearInterval(rotationInterval)
   }
+  if (scrollSaveTimeout) {
+    clearTimeout(scrollSaveTimeout)
+  }
   document.removeEventListener('click', handleClickOutside);
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('scroll', handleScroll);
 })
 
 const selectExample = (example) => {
@@ -577,6 +645,13 @@ const handleNewAnalysis = () => {
   // Clear the mode data cache to prevent reloading old analyses
   clearAllModeData()
 
+  // Clear saved scroll position for fresh start
+  try {
+    localStorage.removeItem(SCROLL_STORAGE_KEY)
+  } catch (error) {
+    console.warn('Failed to clear scroll position:', error)
+  }
+
   // Navigate to home if we're currently on an analysis page
   if (route.params.uuid) {
     router.push('/')
@@ -585,7 +660,7 @@ const handleNewAnalysis = () => {
 
 const handleLogoClick = () => {
   handleNewAnalysis()
-  // Scroll to top smoothly
+  // Scroll to top smoothly and clear saved position
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -957,6 +1032,20 @@ const clearAllModeData = () => {
       @dismissAll="dismissAllSessions"
       @close="closeRecoveryDialog"
     />
+
+    <!-- Back to Top Button -->
+    <Transition name="back-to-top">
+      <button
+        v-if="showBackToTop"
+        class="back-to-top-button"
+        @click="scrollToTop"
+        aria-label="Back to top"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 15-6-6-6 6"/>
+        </svg>
+      </button>
+    </Transition>
   </Layout>
 </template>
 
@@ -1865,6 +1954,76 @@ const clearAllModeData = () => {
   .main-footer {
     margin-top: 40px;
     padding: 30px 0 16px;
+  }
+}
+
+/* Back to Top Button Styles */
+.back-to-top-button {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 56px;
+  height: 56px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  font-size: 0;
+}
+
+.back-to-top-button:hover {
+  background: #333333;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.back-to-top-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.back-to-top-button svg {
+  transition: transform 0.2s ease;
+}
+
+.back-to-top-button:hover svg {
+  transform: translateY(-1px);
+}
+
+/* Transition animations */
+.back-to-top-enter-active,
+.back-to-top-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.back-to-top-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+}
+
+.back-to-top-leave-to {
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+}
+
+@media (max-width: 768px) {
+  .back-to-top-button {
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .back-to-top-button svg {
+    width: 18px;
+    height: 18px;
   }
 }
 </style>

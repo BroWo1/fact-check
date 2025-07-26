@@ -112,6 +112,7 @@ import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 import SectionEditModal from './SectionEditModal.vue'
 import SectionEditInline from './SectionEditInline.vue'
 import factCheckService from '../services/factCheckService'
+import pdfService from '../services/pdfService'
 
 const { t } = useI18n()
 
@@ -320,7 +321,7 @@ const setupEditHandlers = () => {
         heading.addEventListener('mouseenter', () => {
           const hasSessionIdNow = effectiveSessionId.value !== null
 
-          heading.style.background = 'rgba(24, 144, 255, 0.1)'
+          heading.style.background = '#f2f2f2'
           heading.style.borderRadius = '4px'
           heading.style.padding = '4px 8px'
 
@@ -509,44 +510,36 @@ ${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
 }
 
 const downloadReport = () => {
-  // Create a downloadable text file using deduplicated content
-  const plainTextReport = `
-Research Report: ${props.originalClaim}
-Generated: ${formatDate(props.results.created_at)}
+  try {
+    // Prepare data for PDF generation
+    const reportData = {
+      originalClaim: props.originalClaim,
+      created_at: props.results.created_at,
+      summary: deduplicatedTextContent.value || 'No summary available',
+      sources: deduplicatedSources.value || [],
+      limitations: props.results.limitations || [],
+      recommendations: props.results.recommendations || [],
+      mode: 'Research Mode'
+    }
 
-${deduplicatedTextContent.value || 'No summary available'}
+    // Generate and download PDF
+    pdfService.createPDF(reportData)
+    const filename = `research-report-${new Date().toISOString().split('T')[0]}.pdf`
+    pdfService.downloadPDF(filename)
 
-${deduplicatedSources.value && deduplicatedSources.value.length > 0 ? `
-Sources:
-${deduplicatedSources.value.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
-` : ''}
-
-${props.results.limitations && props.results.limitations.length > 0 ? `
-Limitations:
-${props.results.limitations.map(limitation => `• ${limitation}`).join('\n')}
-` : ''}
-
-${props.results.recommendations && props.results.recommendations.length > 0 ? `
-Recommendations:
-${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
-` : ''}
-`.trim()
-
-  const blob = new Blob([plainTextReport], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `research-report-${new Date().toISOString().split('T')[0]}.txt`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-
-  notification.success({
-    message: 'Download Started',
-    description: 'Your research report is being downloaded.',
-    duration: 3
-  })
+    notification.success({
+      message: 'PDF Download Started',
+      description: 'Your research report PDF with table of contents is being downloaded.',
+      duration: 3
+    })
+  } catch (error) {
+    console.error('PDF generation failed:', error)
+    notification.error({
+      message: 'PDF Generation Failed',
+      description: 'Failed to generate PDF. Please try again or contact support.',
+      duration: 4
+    })
+  }
 }
 
 // Extract section content based on heading
@@ -578,6 +571,11 @@ const extractSectionContent = (headingId, htmlContent) => {
 // Extract original markdown section
 const extractMarkdownSection = (headingText, originalMarkdown) => {
   console.log('Extracting markdown section for:', headingText)
+  console.log('Heading text encoding info:', {
+    length: headingText.length,
+    charCodes: Array.from(headingText).map(char => char.charCodeAt(0)),
+    containsChinese: /[\u4e00-\u9fff]/.test(headingText)
+  })
 
   if (!originalMarkdown) {
     console.warn('No original markdown provided')
@@ -590,15 +588,31 @@ const extractMarkdownSection = (headingText, originalMarkdown) => {
 
   // Find the section start
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('## ') && lines[i].includes(headingText)) {
-      sectionStart = i
-      console.log('Found section start at line:', i, lines[i])
-      break
+    if (lines[i].startsWith('## ')) {
+      const lineHeading = lines[i].substring(3).trim()
+      console.log(`Comparing line ${i}: "${lineHeading}" vs target: "${headingText}"`)
+      console.log('Line heading encoding:', {
+        length: lineHeading.length,
+        charCodes: Array.from(lineHeading).map(char => char.charCodeAt(0)),
+        containsChinese: /[\u4e00-\u9fff]/.test(lineHeading)
+      })
+      
+      if (lineHeading === headingText || lines[i].includes(headingText)) {
+        sectionStart = i
+        console.log('Found section start at line:', i, lines[i])
+        break
+      }
     }
   }
 
   if (sectionStart === -1) {
     console.warn('Section not found in markdown:', headingText)
+    console.warn('Available headings:')
+    lines.forEach((line, i) => {
+      if (line.startsWith('## ')) {
+        console.warn(`  Line ${i}: "${line.substring(3).trim()}"`)
+      }
+    })
     return ''
   }
 
@@ -627,7 +641,7 @@ const openInlineEditComponent = (element, headingText, headingId) => {
     // Wait for the close animation to complete before opening new one
     setTimeout(() => {
       openInlineEditInternal(element, headingText, headingId)
-    }, 350) // Match the close animation duration
+    }, 250) // Match the close animation duration
   } else {
     openInlineEditInternal(element, headingText, headingId)
   }
@@ -645,6 +659,18 @@ const openInlineEditInternal = (element, headingText, headingId) => {
     contentLength: sectionContent.length,
     markdownLength: originalMarkdown.length
   })
+
+  // Validate that we have content before proceeding
+  if (!originalMarkdown || originalMarkdown.trim() === '') {
+    console.error('Failed to extract markdown section for:', headingText)
+    console.error('Available headings in markdown:', props.results.summary.split('\n').filter(line => line.startsWith('## ')))
+    notification.error({
+      message: 'Section Not Found',
+      description: 'Could not locate the section content for editing. Please try refreshing the page.',
+      duration: 4
+    })
+    return
+  }
 
   selectedSection.value = {
     id: headingId,
@@ -666,7 +692,7 @@ const openInlineEditInternal = (element, headingText, headingId) => {
     // Wait a bit more for the teleport and animations to settle
     setTimeout(() => {
       highlightSectionContent(element)
-    }, 350)
+    }, 250)
   })
 }
 
@@ -730,10 +756,22 @@ const handleEditAsync = async (editData) => {
       }
     }
 
-    const response = await factCheckService.editSection(effectiveSessionId.value, {
+    const requestData = {
       ...editData,
       fullReport: props.results.summary
-    }, onStatusUpdate)
+    }
+    
+    console.log('API Request data check:', {
+      sectionTitle: requestData.sectionTitle,
+      sectionTitleLength: requestData.sectionTitle?.length,
+      sectionTitleHasChinese: /[\u4e00-\u9fff]/.test(requestData.sectionTitle || ''),
+      originalContentLength: requestData.originalContent?.length,
+      originalContentHasChinese: /[\u4e00-\u9fff]/.test(requestData.originalContent || ''),
+      editPromptLength: requestData.editPrompt?.length,
+      editPromptHasChinese: /[\u4e00-\u9fff]/.test(requestData.editPrompt || '')
+    })
+
+    const response = await factCheckService.editSection(effectiveSessionId.value, requestData, onStatusUpdate)
 
     console.log('Edit response received:', response)
 
@@ -995,7 +1033,7 @@ const closeInlineEdit = () => {
     selectedSection.value = {}
     selectedElement.value = null
     editingSection.value = null
-  }, 350) // Match SectionEditInline's leave animation duration
+  }, 250) // Match SectionEditInline's leave animation duration
 }
 
 // Close edit modal (keep for fallback)

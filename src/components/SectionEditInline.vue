@@ -172,7 +172,7 @@ const onEnter = (el) => {
     content.style.transition = 'opacity 0.3s ease 0.1s, filter 0.3s ease 0.1s' // Delay content animation
   }
   el.offsetHeight // force reflow
-  el.style.transition = 'height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease-out'
+  el.style.transition = 'height 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.25s ease-out'
   el.style.height = el.scrollHeight + 'px'
   el.style.opacity = '1'
   
@@ -194,7 +194,7 @@ const onLeave = (el) => {
     content.style.filter = 'blur(0)'
   }
   el.offsetHeight // force reflow
-  el.style.transition = 'height 0.35s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.35s ease-in'
+  el.style.transition = 'height 0.25s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.25s ease-in'
   if (content) {
     content.style.transition = 'opacity 0.2s ease, filter 0.2s ease'
     content.style.opacity = '0'
@@ -330,7 +330,7 @@ const submitEdit = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.96);
+  background: #fafafa;
   backdrop-filter: blur(12px);
   z-index: 10;
   display: flex;
@@ -378,8 +378,8 @@ const submitEdit = async () => {
 .large-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid #e6f7ff;
-  border-top: 3px solid #1890ff;
+  border: 3px solid #f2f2f2;
+  border-top: 3px solid #000000;
   border-radius: 50%;
   animation: spin 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
   margin: 0 auto 20px;
@@ -404,7 +404,7 @@ const submitEdit = async () => {
 }
 
 .inline-loading-overlay.completed {
-  background: rgba(255, 255, 255, 0.98);
+  background: #fafafa;
   backdrop-filter: blur(16px);
 }
 
@@ -552,7 +552,7 @@ const submitEdit = async () => {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.6;
   resize: none;
   transition: all 0.2s ease;
@@ -563,8 +563,8 @@ const submitEdit = async () => {
 
 .edit-textarea:focus {
   outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-color: #000000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transform: translateY(-1px);
 }
 
@@ -586,7 +586,7 @@ const submitEdit = async () => {
 }
 
 .submit-button {
-  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
+  background: #000000;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -604,7 +604,7 @@ const submitEdit = async () => {
   min-height: 36px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   letter-spacing: -0.2px;
 }
 
@@ -620,8 +620,9 @@ const submitEdit = async () => {
 }
 
 .submit-button:hover:not(:disabled) {
+  background: #333333;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .submit-button:hover:not(:disabled)::before {
@@ -630,7 +631,7 @@ const submitEdit = async () => {
 
 .submit-button:active:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .submit-button:disabled {
@@ -641,7 +642,7 @@ const submitEdit = async () => {
 }
 
 .submit-button.submitting {
-  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
+  background: #000000;
   color: #ffffff;
   cursor: wait;
 }
@@ -794,7 +795,6 @@ const submitEdit = async () => {
   }
 
   .edit-textarea {
-    font-size: 12px;
     min-height: 70px;
     padding: 9px;
   }
@@ -841,9 +841,12 @@ const submitEdit = async () => {
 /* Focus visible styles for accessibility */
 .close-button:focus-visible,
 .submit-button:focus-visible,
-.cancel-button:focus-visible,
-.edit-textarea:focus-visible {
-  outline: 2px solid #1890ff;
+.cancel-button:focus-visible {
+  outline: 2px solid #000000;
   outline-offset: 2px;
+}
+
+.edit-textarea:focus-visible {
+  outline: none;
 }
 </style>

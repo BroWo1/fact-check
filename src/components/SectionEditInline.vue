@@ -549,23 +549,25 @@ const submitEdit = async () => {
   width: 100%;
   min-height: 100px;
   padding: 10px;
-  border: 1px solid #e9ecef;
+  border: 1px solid #d9d9d9;
   border-radius: 8px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.6;
   resize: none;
   transition: all 0.2s ease;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   margin-top: 16px;
+}
+
+.edit-textarea:hover {
+  border-color: #000000;
 }
 
 .edit-textarea:focus {
   outline: none;
   border-color: #000000;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .edit-textarea::placeholder {
@@ -590,21 +592,20 @@ const submitEdit = async () => {
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 8px 20px;
+  padding: 0 20px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 110px;
-  min-height: 36px;
+  height: 36px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   letter-spacing: -0.2px;
 }
 
@@ -621,24 +622,17 @@ const submitEdit = async () => {
 
 .submit-button:hover:not(:disabled) {
   background: #333333;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
 }
 
 .submit-button:hover:not(:disabled)::before {
   left: 100%;
 }
 
-.submit-button:active:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
 .submit-button:disabled {
-  background: #f0f0f0;
-  color: #999999;
+  opacity: 0.6;
   cursor: not-allowed;
-  box-shadow: none;
+  color: #858585;
 }
 
 .submit-button.submitting {
@@ -713,29 +707,23 @@ const submitEdit = async () => {
 .cancel-button {
   background: #ffffff;
   color: #666666;
-  border: 1px solid #e9ecef;
+  border: 1px solid #d9d9d9;
   border-radius: 8px;
-  padding: 8px 20px;
+  padding: 0 20px;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 36px;
+  height: 36px;
   font-weight: 500;
   letter-spacing: -0.2px;
 }
 
 .cancel-button:hover:not(:disabled) {
-  background: #fafafa;
-  border-color: #d0d0d0;
+  background: #f5f5f5;
+  border-color: #000000;
   color: #000000;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.cancel-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .cancel-button:disabled {

@@ -181,6 +181,101 @@ class FactCheckService {
     })
   }
 
+  async quickAsk(sessionId, questionData, onStatusUpdate = null) {
+    return this.makeRequestWithRetry(async () => {
+      console.log('Quick ask request:', {
+        sessionId,
+        questionLength: questionData.question?.length,
+        reportContentLength: questionData.reportContent?.length
+      })
+      
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/quick-ask/`, {
+        question: questionData.question,
+        report_content: questionData.reportContent
+      }, {
+        timeout: 60000 // 1 minute timeout for quick ask requests
+      })
+      
+      console.log('Quick ask response:', response.status)
+      
+      // Handle async processing (202 response)
+      if (response.status === 202 && response.data.status === 'processing') {
+        console.log('Quick ask is processing, polling for result...')
+        
+        // Notify that we're starting to poll
+        if (onStatusUpdate) {
+          onStatusUpdate('polling', 0, 30)
+        }
+        
+        return await this.pollQuickAskResult(response.data.polling_url, response.data.ask_id, 30, onStatusUpdate)
+      }
+      
+      // Handle synchronous response (200)
+      return response.data
+    })
+  }
+
+  async pollQuickAskResult(pollingUrl, askId, maxAttempts = 30, onStatusUpdate = null) {
+    let attempts = 0
+    const pollInterval = 2000 // 2 seconds
+    
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`Polling quick ask result (attempt ${attempts + 1}/${maxAttempts})`)
+        
+        // Fix the polling URL - remove /api prefix if it exists since axios will add it
+        let cleanPollingUrl = pollingUrl
+        if (pollingUrl.startsWith('/api/')) {
+          cleanPollingUrl = pollingUrl.substring(4) // Remove '/api' prefix
+        } else if (pollingUrl.includes('/api/')) {
+          // Handle full URLs or URLs with domain
+          const url = new URL(pollingUrl, window.location.origin)
+          cleanPollingUrl = url.pathname.replace('/api', '')
+        }
+        
+        console.log('Polling URL:', cleanPollingUrl)
+        
+        const response = await this.axiosInstance.get(cleanPollingUrl)
+        const data = response.data
+        
+        console.log('Poll response:', data)
+        
+        // Notify about status updates
+        if (onStatusUpdate) {
+          onStatusUpdate(data.status, attempts + 1, maxAttempts)
+        }
+        
+        if (data.status === 'completed') {
+          console.log('Quick ask completed successfully')
+          // Return the completed response with answer
+          return {
+            status: 'completed',
+            question: data.question,
+            answer: data.answer || data.response,
+            response_time: data.response_time || data.processing_time
+          }
+        } else if (data.status === 'failed') {
+          throw new Error(data.error_message || data.error || 'Quick ask processing failed')
+        } else if (data.status === 'processing' || data.status === 'pending') {
+          // Continue polling
+          attempts++
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+          }
+        } else {
+          throw new Error(`Unknown quick ask status: ${data.status}`)
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          throw new Error('Quick ask session not found')
+        }
+        throw error
+      }
+    }
+    
+    throw new Error('Quick ask processing timeout - maximum polling attempts reached')
+  }
+
   async pollEditResult(pollingUrl, editId, maxAttempts = 60, onStatusUpdate = null) {
     let attempts = 0
     const pollInterval = 5000 // 2 seconds

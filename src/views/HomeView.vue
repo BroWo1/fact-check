@@ -15,6 +15,8 @@ import ModeSelector from '../components/ModeSelector.vue'
 import SessionRecoveryDialog from '../components/SessionRecoveryDialog.vue'
 import NotificationPermissionBanner from '../components/NotificationPermissionBanner.vue'
 import TableOfContents from '../components/TableOfContents.vue'
+import AIQuickAsk from '../components/AIQuickAsk.vue'
+import TextSelectionPopup from '../components/TextSelectionPopup.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 // Define props
@@ -32,6 +34,7 @@ const router = useRouter()
 const uuid = ref(route.params.uuid || props.uuid)
 const tocHeadings = ref([]);
 const isTocCollapsed = ref(true); // Default to collapsed on mobile
+const aiQuickAskRef = ref(null); // Reference to AIQuickAsk component
 
 const showToc = computed(() => {
   return !!results.value && (selectedMode.value === 'research' || selectedMode.value === 'fact_check') && tocHeadings.value.length > 0;
@@ -53,13 +56,29 @@ const handleSectionUpdated = (updatedResults) => {
   console.log('Results updated, new length:', results.value?.summary?.length || 0)
 }
 
+// Handle text selection for AI citation
+const handleTextSelection = (selectedText) => {
+  if (aiQuickAskRef.value && aiQuickAskRef.value.handleCitation) {
+    aiQuickAskRef.value.handleCitation(selectedText)
+  }
+}
+
 // Function to navigate to analysis URL
 const navigateToAnalysis = (analysisId) => {
   router.push(`/${analysisId}`)
 }
 
+// Debounce mechanism for preventing duplicate notifications
+let lastSelectedAnalysisId = null
+let notificationTimeout = null
+
 // Handle selecting a saved analysis - defined after all variables are declared
 function handleSelectSavedAnalysis(analysis) {
+  // Prevent duplicate notifications for the same analysis within a short time window
+  if (lastSelectedAnalysisId === analysis.id && notificationTimeout) {
+    return
+  }
+
   resetState()
 
   // Set flag to prevent the mode watcher from clearing results
@@ -105,7 +124,14 @@ function handleSelectSavedAnalysis(analysis) {
     isLoadingSavedAnalysis.value = false
   })
 
-  // Show notification
+  // Show notification (with debounce protection)
+  lastSelectedAnalysisId = analysis.id
+  clearTimeout(notificationTimeout)
+  notificationTimeout = setTimeout(() => {
+    lastSelectedAnalysisId = null
+    notificationTimeout = null
+  }, 1000) // Reset after 1 second
+
   notification.success({
     message: 'Analysis Loaded',
     description: `Loaded analysis from ${new Date(analysis.timestamp).toLocaleDateString()}`,
@@ -192,6 +218,22 @@ const {
   cancelFactCheck,
   resetState
 } = useFactCheck()
+
+// Get the effective sessionId - use prop or fallback to results.session_id
+const effectiveSessionId = computed(() => {
+  const propSessionId = sessionId.value && sessionId.value.trim() !== '' ? sessionId.value : null
+  const resultsSessionId = results.value?.session_id || null
+  
+  const effective = propSessionId || resultsSessionId
+  
+  console.log('HomeView - Effective sessionId calculation:', {
+    propSessionId,
+    resultsSessionId,
+    effective
+  })
+  
+  return effective
+})
 
 // Debug sessionId changes
 watch(sessionId, (newSessionId, oldSessionId) => {
@@ -758,6 +800,42 @@ const clearAllModeData = () => {
     }
   }
 }
+
+// Function to extract report content for AI Quick Ask
+const getReportContent = () => {
+  if (!results.value) return ''
+  
+  try {
+    // For fact-check mode, extract relevant content
+    if (selectedMode.value === 'fact_check') {
+      const { verdict, confidence_score, summary, reasoning, sources } = results.value
+      return `Verdict: ${verdict}\nConfidence: ${confidence_score}\nSummary: ${summary}\nReasoning: ${reasoning}\nSources: ${sources ? JSON.stringify(sources) : 'None'}`
+    }
+    
+    // For research mode, extract summary content
+    if (selectedMode.value === 'research' && results.value.summary) {
+      // If summary is an array of sections, extract text content
+      if (Array.isArray(results.value.summary)) {
+        return results.value.summary.map(section => {
+          const title = section.title || ''
+          const content = section.content || ''
+          return `${title}\n${content}`
+        }).join('\n\n')
+      }
+      
+      // If summary is a string, return as is
+      if (typeof results.value.summary === 'string') {
+        return results.value.summary
+      }
+    }
+    
+    // Fallback: stringify the entire results object
+    return JSON.stringify(results.value, null, 2)
+  } catch (error) {
+    console.error('Error extracting report content:', error)
+    return 'Unable to extract report content'
+  }
+}
 </script>
 
 <template>
@@ -935,7 +1013,7 @@ const clearAllModeData = () => {
         </div>
       </div>
 
-      <div v-if="results" class="results-layout-wrapper" :class="{ 'has-toc': showToc }">
+      <div v-if="results" class="results-layout-wrapper" :class="{ 'has-toc': showToc, 'has-ai-ask': showToc }">
         <div v-if="showToc" class="toc-wrapper" :class="{ 'is-collapsed': isTocCollapsed }">
           <TableOfContents
             :headings="tocHeadings"
@@ -970,6 +1048,14 @@ const clearAllModeData = () => {
               {{ selectedMode === 'fact_check' ? 'Start New Analysis' : 'Start New Research' }}
             </Button>
           </div>
+        </div>
+        <div v-if="showToc" class="ai-ask-wrapper">
+          <AIQuickAsk
+            ref="aiQuickAskRef"
+            :sessionId="effectiveSessionId"
+            :reportContent="getReportContent()"
+            :visible="showToc"
+          />
         </div>
       </div>
 
@@ -1046,6 +1132,13 @@ const clearAllModeData = () => {
         </svg>
       </button>
     </Transition>
+
+    <!-- Text Selection Popup for AI Citation -->
+    <TextSelectionPopup
+      :visible="true"
+      :isSessionReady="!!effectiveSessionId"
+      @ask-ai="handleTextSelection"
+    />
   </Layout>
 </template>
 
@@ -1241,11 +1334,34 @@ const clearAllModeData = () => {
     grid-template-areas: "left-gutter report right-gutter";
     gap: 40px;
 }
+.results-layout-wrapper.has-ai-ask {
+    grid-template-columns: 240px 1fr 280px;
+    grid-template-areas: "toc-area report ai-ask-area";
+    gap: 40px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.results-layout-wrapper.has-ai-ask .results-content-area {
+    max-width: 700px;
+    margin: 0 auto;
+    justify-self: center;
+}
 
 .toc-wrapper {
     grid-area: left-gutter;
     justify-self: end;
+}
 
+.results-layout-wrapper.has-ai-ask .toc-wrapper {
+    grid-area: toc-area;
+    justify-self: start;
+}
+
+.ai-ask-wrapper {
+    grid-area: ai-ask-area;
+    justify-self: start;
 }
 
 .results-content-area {
@@ -1754,6 +1870,23 @@ const clearAllModeData = () => {
         margin-left: auto;
         margin-right: auto;
         gap: 0;
+    }
+    
+    .results-layout-wrapper.has-ai-ask {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "toc-area"
+            "report"
+            "ai-ask-area";
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+        gap: 0;
+    }
+    
+    .ai-ask-wrapper {
+        justify-self: stretch;
+        margin-top: 16px;
     }
     .toc-wrapper {
         /* Make the whole TOC section sticky on mobile */

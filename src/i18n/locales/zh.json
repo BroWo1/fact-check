@@ -140,5 +140,13 @@
   },
   "common": {
     "cancel": "取消"
+  },
+  "aiQuickAsk": {
+    "title": "快速询问AI",
+    "placeholder": "询问此报告...",
+    "ask": "询问",
+    "asking": "询问中...",
+    "clear": "清除",
+    "response": "AI回应："
   }
 }

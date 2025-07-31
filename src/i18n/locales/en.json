@@ -140,5 +140,13 @@
   },
   "common": {
     "cancel": "Cancel"
+  },
+  "aiQuickAsk": {
+    "title": "Quick Ask AI",
+    "placeholder": "Ask about this report...",
+    "ask": "Ask",
+    "asking": "Asking...",
+    "clear": "Clear",
+    "response": "AI Response:"
   }
 }

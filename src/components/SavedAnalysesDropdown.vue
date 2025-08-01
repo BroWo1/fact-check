@@ -58,6 +58,10 @@
                 {{ formatAnalysisForDisplay(analysis).shortClaim }}
               </div>
 
+              <div class="card-summary" v-if="analysis.summary">
+                {{ formatAnalysisForDisplay(analysis).shortSummary }}
+              </div>
+
               <div class="card-meta">
                 <div class="card-result" v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict">
                   <span class="result-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
@@ -126,6 +130,11 @@
             <div class="card-claim">
               {{ formatAnalysisForDisplay(analysis).shortClaim }}
             </div>
+            
+            <div class="card-summary" v-if="analysis.summary">
+              {{ formatAnalysisForDisplay(analysis).shortSummary }}
+            </div>
+            
             <div class="card-meta">
               <div class="card-result" v-if="(analysis.mode || 'fact_check') === 'fact_check' && analysis.verdict">
                 <span class="result-icon">{{ getVerdictIcon(analysis.verdict) }}</span>
@@ -435,6 +444,23 @@ onUnmounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.card-summary {
+  font-size: 12px;
+  color: #666666;
+  line-height: 1.3;
+  font-style: italic;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #f8f9fa;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #e9ecef;
 }
 
 .card-meta {

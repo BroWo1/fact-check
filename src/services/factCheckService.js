@@ -215,6 +215,29 @@ class FactCheckService {
     })
   }
 
+  async generateSummary(sessionId, contentData) {
+    return this.makeRequestWithRetry(async () => {
+      console.log('Generate summary request:', {
+        sessionId,
+        originalClaimLength: contentData.originalClaim?.length,
+        contentLength: contentData.content?.length,
+        mode: contentData.mode
+      })
+      
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/generate-summary/`, {
+        original_claim: contentData.originalClaim,
+        content: contentData.content,
+        mode: contentData.mode,
+        verdict: contentData.verdict
+      }, {
+        timeout: 30000 // 30 seconds timeout for summary generation
+      })
+      
+      console.log('Generate summary response:', response.status)
+      return response.data
+    })
+  }
+
   async pollQuickAskResult(pollingUrl, askId, maxAttempts = 30, onStatusUpdate = null) {
     let attempts = 0
     const pollInterval = 2000 // 2 seconds

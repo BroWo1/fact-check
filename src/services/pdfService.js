@@ -70,7 +70,10 @@ class PDFService {
     this.doc.setFontSize(18)
     this.doc.setFont('helvetica', 'bold') // DM Sans fallback
 
-    const title = this.formatTitle(reportData.originalClaim || 'Research Analysis Report')
+    // Use custom title if provided, otherwise use summary as title, fallback to original claim
+    const title = reportData.customTitle || 
+                  reportData.analysisTitle || 
+                  this.formatTitle(reportData.originalClaim || 'Research Analysis Report')
     const titleLines = this.doc.splitTextToSize(title, this.pageWidth)
 
     titleLines.forEach(line => {

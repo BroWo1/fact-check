@@ -252,7 +252,11 @@ const { t } = useI18n()
 const props = defineProps({
   results: Object,
   originalClaim: String,
-  uploadedImage: String
+  uploadedImage: String,
+  analysisSummary: {
+    type: String,
+    default: null
+  }
 })
 
 // Preview modal state

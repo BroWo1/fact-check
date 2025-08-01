@@ -128,6 +128,10 @@ const props = defineProps({
   sessionId: {
     type: String,
     default: ''
+  },
+  analysisSummary: {
+    type: String,
+    default: null
   }
 })
 
@@ -519,12 +523,19 @@ const downloadReport = () => {
       sources: deduplicatedSources.value || [],
       limitations: props.results.limitations || [],
       recommendations: props.results.recommendations || [],
-      mode: 'Research Mode'
+      mode: 'Research Mode',
+      // Use analysis summary as the title if available
+      analysisTitle: props.analysisSummary
     }
 
     // Generate and download PDF
     pdfService.createPDF(reportData)
-    const filename = `research-report-${new Date().toISOString().split('T')[0]}.pdf`
+    
+    // Use analysis summary for filename if available, otherwise use date
+    const baseFilename = props.analysisSummary 
+      ? props.analysisSummary.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase().substring(0, 50)
+      : 'research-report'
+    const filename = `${baseFilename}-${new Date().toISOString().split('T')[0]}.pdf`
     pdfService.downloadPDF(filename)
 
     notification.success({
@@ -1052,6 +1063,8 @@ const closeEditModal = () => {
   padding: 32px;
   margin-top: 24px;
   border: 1px solid #e8e8e8;
+  overflow-wrap: break-word; /* Ensure container handles long words */
+  word-wrap: break-word; /* Legacy support */
 }
 
 .research-header {
@@ -1131,6 +1144,8 @@ const closeEditModal = () => {
   font-size: 16px;
   line-height: 1.8;
   color: #333333;
+  word-wrap: break-word; /* General word breaking for all content */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 /* Markdown styling */
@@ -1142,6 +1157,8 @@ const closeEditModal = () => {
   margin: 32px 0 16px 0;
   border-bottom: 2px solid #e8e8e8;
   padding-bottom: 8px;
+  word-wrap: break-word; /* Allow long headings to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(h2) {
@@ -1153,6 +1170,8 @@ const closeEditModal = () => {
   scroll-margin-top: 80px;
   text-align: center;
   transition: all 0.2s ease;
+  word-wrap: break-word; /* Allow long headings to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(h2.editable-heading) {
@@ -1180,6 +1199,8 @@ const closeEditModal = () => {
   margin: 24px 0 8px 0;
   scroll-margin-top: 80px;
   text-align: center;
+  word-wrap: break-word; /* Allow long headings to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(h4) {
@@ -1189,11 +1210,16 @@ const closeEditModal = () => {
   color: #000000;
   margin: 20px 0 8px 0;
   scroll-margin-top: 80px;
+  word-wrap: break-word; /* Allow long headings to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(p) {
   margin: 16px 0;
   text-align: justify;
+  hyphens: auto; /* Enable automatic hyphenation */
+  -webkit-hyphens: auto; /* Safari support */
+  -ms-hyphens: auto; /* IE/Edge support */
 }
 
 .markdown-content :deep(ul),
@@ -1223,6 +1249,8 @@ const closeEditModal = () => {
   border-radius: 4px;
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 14px;
+  word-wrap: break-word; /* Allow long code snippets to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(pre) {
@@ -1244,7 +1272,7 @@ const closeEditModal = () => {
   margin: 16px 0;
   overflow-x: auto;
   display: block;
-  white-space: nowrap;
+  /* Remove white-space: nowrap to allow better responsive behavior */
 }
 
 .markdown-content :deep(th),
@@ -1252,7 +1280,9 @@ const closeEditModal = () => {
   border: 1px solid #e8e8e8;
   padding: 8px 12px;
   text-align: justify;
-  min-width: 100px;
+  min-width: 80px; /* Reduced from 100px to be more mobile-friendly */
+  word-wrap: break-word; /* Allow long words to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
 }
 
 .markdown-content :deep(th) {
@@ -1263,10 +1293,23 @@ const closeEditModal = () => {
 .markdown-content :deep(a) {
   color: #0066cc;
   text-decoration: underline;
+  word-wrap: break-word; /* Allow long URLs to break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
+  word-break: break-all; /* Break long URLs at any character if needed */
 }
 
 .markdown-content :deep(a:hover) {
   color: #0052a3;
+}
+
+/* Handle parenthetical citations and long technical terms */
+.markdown-content :deep(*) {
+  /* Allow breaking at any point for very long words if needed */
+  word-break: break-word;
+  /* Enable hyphens for better text wrapping */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
 }
 
 .section-title {
@@ -1511,6 +1554,12 @@ const closeEditModal = () => {
 @media (max-width: 768px) {
   .research-results {
     padding: 20px;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    max-width: 90vw !important; /* Force maximum width to viewport width */
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important; /* Prevent horizontal scroll */
   }
 
   .research-title {
@@ -1532,8 +1581,25 @@ const closeEditModal = () => {
     justify-content: center;
   }
 
+  .research-content {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
   .markdown-content {
     font-size: 15px;
+    /* Comprehensive mobile text handling */
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
+    -ms-hyphens: auto !important;
+    /* Prevent any element from extending beyond container */
+    max-width: calc(100vw - 40px) !important; /* Account for padding (20px * 2) */
+    width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
   }
 
   .markdown-content :deep(h1) {
@@ -1549,8 +1615,8 @@ const closeEditModal = () => {
   }
 
   .markdown-content :deep(p) {
-    font-size: 14px;
-    margin: 14px, 0;
+    font-size: 13px;
+    margin: 13px, 0;
   }
 
   .sources-header {
@@ -1570,7 +1636,7 @@ const closeEditModal = () => {
   .markdown-content :deep(table) {
     display: block;
     overflow-x: auto;
-    white-space: nowrap;
+    white-space: normal; /* Allow text wrapping in mobile tables */
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
   }
@@ -1578,8 +1644,41 @@ const closeEditModal = () => {
   .markdown-content :deep(th),
   .markdown-content :deep(td) {
     padding: 6px 8px;
-    font-size: 14px;
-    min-width: 80px;
+    font-size: 13px;
+    min-width: 60px; /* Reduced from 80px to prevent overflow */
+    white-space: normal; /* Allow text wrapping in mobile */
+    word-wrap: break-word;
+  }
+
+  /* Mobile-specific aggressive word breaking */
+  .markdown-content :deep(p),
+  .markdown-content :deep(li),
+  .markdown-content :deep(span) {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+    font-size: 13px;
+  }
+
+  /* Ensure parenthetical citations break properly on mobile */
+  .markdown-content :deep(*) {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important; /* Force all elements to stay within container */
+    box-sizing: border-box !important;
+  }
+
+  /* Specific constraints for potentially problematic elements */
+  .markdown-content :deep(table),
+  .markdown-content :deep(pre),
+  .markdown-content :deep(code),
+  .markdown-content :deep(a),
+  .markdown-content :deep(img) {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    box-sizing: border-box !important;
   }
 }
 </style>

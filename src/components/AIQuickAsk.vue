@@ -28,7 +28,7 @@ const isLoading = ref(false);
 const isCollapsed = ref(true); // Start collapsed by default
 const citation = ref(''); // Store selected text as citation
 
-// Mobile specific state
+// Mobile/small screen specific state
 const isMobile = ref(false);
 const isMobileOverlayOpen = ref(false);
 
@@ -60,9 +60,9 @@ const closeMobileOverlay = () => {
   isMobileOverlayOpen.value = false;
 };
 
-// Check if mobile for responsive behavior
+// Check if mobile/small screen for responsive behavior
 const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768;
+  isMobile.value = window.innerWidth <= 1200;
 };
 
 onMounted(() => {
@@ -159,7 +159,7 @@ defineExpose({
 </script>
 
 <template>
-  <!-- Mobile Floating Button -->
+  <!-- Mobile/Small Screen Floating Button -->
   <div v-if="visible && isMobile" class="mobile-quick-ask">
     <button 
       class="mobile-floating-button"
@@ -702,28 +702,7 @@ defineExpose({
 
 @media (max-width: 1200px) {
   .ai-quick-ask-container {
-    position: static;
-    top: auto;
-    width: 100%;
-    max-height: none;
-    margin-top: 16px;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-  }
-  
-  .ai-quick-ask-header {
-    background: transparent;
-    border-bottom: 1px solid #f0f0f0;
-    padding: 12px 0;
-  }
-  
-  .ai-quick-ask-inner {
-    padding: 16px 0;
-  }
-  
-  .response-content {
-    max-height: 300px;
+    display: none; /* Hide desktop version on small screens */
   }
 }
 
@@ -732,27 +711,21 @@ defineExpose({
     font-size: 13px;
   }
   
-  .button-group {
-    flex-direction: column;
-    gap: 8px;
+  .mobile-content .question-input {
+    font-size: 16px !important; /* Prevent zoom on iOS */
   }
   
-  .ask-button,
-  .clear-button {
-    width: 100%;
+  .mobile-content .response-text {
     font-size: 12px !important;
   }
   
-  .question-input {
-    font-size: 14px !important;
-  }
-  
-  .response-text {
-    font-size: 12px !important;
-  }
+  .mobile-content .response-text h1 { font-size: 18px; }
+  .mobile-content .response-text h2 { font-size: 16px; }
+  .mobile-content .response-text h3 { font-size: 15px; }
+  .mobile-content .response-text h4 { font-size: 14px; }
 }
 
-/* Mobile Floating Button */
+/* Mobile/Small Screen Floating Button */
 .mobile-quick-ask {
   position: fixed;
   bottom: 104px; /* 32px (back-to-top bottom) + 56px (back-to-top height) + 16px (gap) */
@@ -906,7 +879,7 @@ defineExpose({
   opacity: 0;
 }
 
-/* Mobile-specific adjustments */
+/* Mobile-specific adjustments for very small screens */
 @media (max-width: 768px) {
   .ai-quick-ask-container {
     display: none; /* Hide desktop version on mobile */
@@ -959,7 +932,7 @@ defineExpose({
 }
 
 /* Desktop styles - ensure desktop version shows correctly */
-@media (min-width: 769px) {
+@media (min-width: 1201px) {
   .mobile-quick-ask,
   .mobile-overlay {
     display: none; /* Hide mobile version on desktop */

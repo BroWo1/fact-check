@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
+import factCheckService from '../services/factCheckService'
 
 const STORAGE_KEY = 'fact-check-analyses'
 
@@ -104,19 +105,50 @@ export function useSavedAnalyses() {
   // --- Core methods ---
 
   /**
+   * Generates a summary for analysis content
+   * @param {string} sessionId - The session ID
+   * @param {string} originalClaim - The original claim
+   * @param {object} results - The analysis results
+   * @param {string} mode - The analysis mode
+   */
+  const generateAnalysisSummary = async (sessionId, originalClaim, results, mode) => {
+    try {
+      if (!sessionId) {
+        console.warn('No sessionId available for summary generation')
+        return null
+      }
+
+      const contentData = {
+        originalClaim,
+        content: mode === 'fact_check' ? results.reasoning || results.summary : results.summary,
+        mode,
+        verdict: results.verdict
+      }
+
+      const summaryResponse = await factCheckService.generateSummary(sessionId, contentData)
+      return summaryResponse.summary || null
+    } catch (error) {
+      console.error('Failed to generate summary:', error)
+      return null
+    }
+  }
+
+  /**
    * Saves a new analysis or updates an existing one for the same claim.
    * @param {object} results - The analysis results object.
    * @param {string} originalClaim - The original claim text.
    * @param {string} mode - The mode used ('fact_check' or 'research').
    * @param {boolean} progressCollapsed - Whether the progress section is collapsed.
    * @param {object} progress - The progress data including steps and percentage.
+   * @param {string} sessionId - Optional session ID for summary generation.
    */
-  const saveAnalysis = (results, originalClaim, mode = 'fact_check', progressCollapsed = true, progress = null) => {
+  const saveAnalysis = async (results, originalClaim, mode = 'fact_check', progressCollapsed = true, progress = null, sessionId = null) => {
     console.log('🔄 saveAnalysis called with:', { 
       results: !!results, 
       originalClaim: originalClaim?.substring(0, 50), 
       mode, 
       progress: !!progress,
+      sessionId: !!sessionId,
       currentArrayLength: savedAnalyses.value.length
     })
     
@@ -132,18 +164,31 @@ export function useSavedAnalyses() {
       (analysis) => analysis.originalClaim.trim().toLowerCase() === normalizedClaim
     )
 
-    let analysisId, originalTimestamp
+    let analysisId, originalTimestamp, existingSummary
     if (existingAnalysisIndex > -1) {
-      // Preserve the existing UUID and timestamp when updating
+      // Preserve the existing UUID, timestamp, and summary when updating
       analysisId = savedAnalyses.value[existingAnalysisIndex].id
       originalTimestamp = savedAnalyses.value[existingAnalysisIndex].timestamp
+      existingSummary = savedAnalyses.value[existingAnalysisIndex].summary
       console.log('📝 Updating existing analysis with preserved UUID and timestamp:', analysisId)
       savedAnalyses.value.splice(existingAnalysisIndex, 1)
     } else {
       // Generate new UUID only for truly new analyses
       analysisId = uuidv4()
       originalTimestamp = new Date().toISOString()
+      existingSummary = null
       console.log('✨ Creating new analysis with UUID:', analysisId)
+    }
+
+    // Generate summary if not already available and sessionId is provided
+    let summary = existingSummary
+    if (!summary && sessionId) {
+      try {
+        summary = await generateAnalysisSummary(sessionId, originalClaim, results, mode)
+        console.log('📝 Generated summary:', summary?.substring(0, 100) + '...')
+      } catch (error) {
+        console.warn('Failed to generate summary, proceeding without it:', error)
+      }
     }
 
     const newAnalysis = {
@@ -155,12 +200,14 @@ export function useSavedAnalyses() {
       mode, // Add mode information
       progressCollapsed: true, // Always save as collapsed for auto-hide on reload
       progress, // Save progress data including steps
+      summary, // Add generated summary
     }
     
     console.log('💾 About to save analysis:', {
       id: analysisId, 
       claim: originalClaim.substring(0, 50),
       verdict: results.verdict,
+      hasSummary: !!summary,
       beforeLength: savedAnalyses.value.length
     })
     
@@ -205,7 +252,11 @@ export function useSavedAnalyses() {
     
     const confidencePercent = Math.round((analysis.results.confidence_score || 0) * 100)
     
-    return { shortClaim, displayDate, confidencePercent }
+    const shortSummary = analysis.summary && analysis.summary.length > 120
+      ? `${analysis.summary.substring(0, 120)}...`
+      : analysis.summary || ''
+    
+    return { shortClaim, displayDate, confidencePercent, shortSummary }
   }
 
   const getVerdictIcon = (verdict) => ({'true':'✅','likely_true':'👍','likely':'👍','uncertain':'❓','likely_false':'👎','suspicious':'⚠️','false':'❌'}[verdict]||'❓')

@@ -248,6 +248,13 @@ watch(sessionId, (newSessionId, oldSessionId) => {
 // Saved analyses integration
 const { saveAnalysis, savedAnalyses } = useSavedAnalyses()
 
+// Get current analysis summary for PDF title
+const currentAnalysisSummary = computed(() => {
+  if (!uuid.value) return null
+  const analysis = savedAnalyses.value.find(a => a.id === uuid.value)
+  return analysis?.summary || null
+})
+
 // Debug function to manually test saving
 const testSave = () => {
   console.log('🧪 Manual test save triggered')
@@ -632,7 +639,7 @@ const handleSubmit = async () => {
 }
 
 // Watch for results to automatically save when analysis is complete
-watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
+watch([results, originalClaim], async ([newResults, newOriginalClaim]) => {
   console.log('🎯 Watch triggered - Results:', !!newResults, 'OriginalClaim:', !!newOriginalClaim, 'Loading:', isLoading.value)
   console.log('🔍 Results type:', typeof newResults, 'Claim type:', typeof newOriginalClaim)
   console.log('📋 Results content:', newResults ? Object.keys(newResults) : 'null')
@@ -646,7 +653,7 @@ watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
   if (newResults && newOriginalClaim && !isLoading.value && !isLoadingSavedAnalysis.value && !isRecoveringSession.value) {
     console.log('💾 Attempting to save analysis:', newOriginalClaim.substring(0, 50))
     try {
-      const analysisId = saveAnalysis(newResults, newOriginalClaim, selectedMode.value, progressCollapsed.value, {
+      const analysisId = await saveAnalysis(newResults, newOriginalClaim, selectedMode.value, progressCollapsed.value, {
         percentage: progress.percentage,
         currentStep: progress.currentStep,
         stepNumber: progress.stepNumber,
@@ -655,7 +662,7 @@ watch([results, originalClaim], ([newResults, newOriginalClaim]) => {
         failedSteps: progress.failedSteps,
         expectedSteps: progress.expectedSteps,
         steps: [...progress.steps]
-      })
+      }, sessionId.value)
       console.log('✅ Analysis saved successfully with ID:', analysisId)
 
       // Navigate to the analysis URL if we're not already there and not on a specific UUID page
@@ -1027,6 +1034,7 @@ const getReportContent = () => {
             :results="results"
             :originalClaim="originalClaim"
             :uploadedImage="imagePreview"
+            :analysisSummary="currentAnalysisSummary"
             @headings-extracted="handleHeadingsExtracted"
           />
           <ResearchResults
@@ -1034,6 +1042,7 @@ const getReportContent = () => {
             :results="results"
             :originalClaim="originalClaim"
             :sessionId="sessionId"
+            :analysisSummary="currentAnalysisSummary"
             @headings-extracted="handleHeadingsExtracted"
             @section-updated="handleSectionUpdated"
             :key="`research-${sessionId}`"
@@ -1334,8 +1343,9 @@ const getReportContent = () => {
     grid-template-areas: "left-gutter report right-gutter";
     gap: 40px;
 }
+
 .results-layout-wrapper.has-ai-ask {
-    grid-template-columns: 240px 1fr 280px;
+    grid-template-columns: 260px 1fr 260px;
     grid-template-areas: "toc-area report ai-ask-area";
     gap: 40px;
     max-width: 1400px;

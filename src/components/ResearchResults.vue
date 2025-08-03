@@ -1603,15 +1603,15 @@ const closeEditModal = () => {
   }
 
   .markdown-content :deep(h1) {
-    font-size: 28px;
+    font-size: 26px;
   }
 
   .markdown-content :deep(h2) {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .markdown-content :deep(h3) {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .markdown-content :deep(p) {

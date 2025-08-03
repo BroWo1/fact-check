@@ -141,6 +141,19 @@
   "common": {
     "cancel": "Cancel"
   },
+  
+  "settings": {
+    "title": "Settings",
+    "weeklyActivity": "Weekly Activity",
+    "advancedRequests": "Advanced Requests",
+    "quickRequests": "Quick Requests",
+    "thisWeek": "This week",
+    "preferences": "Preferences",
+    "language": "Language",
+    "languageDescription": "Choose your preferred language",
+    "maxMode": "Max Mode",
+    "maxModeDescription": "Enhanced analysis quality"
+  },
   "aiQuickAsk": {
     "title": "Quick Ask AI",
     "placeholder": "Ask about this report...",

@@ -141,6 +141,19 @@
   "common": {
     "cancel": "取消"
   },
+  
+  "settings": {
+    "title": "设置",
+    "weeklyActivity": "每周活动",
+    "advancedRequests": "高级请求",
+    "quickRequests": "快速请求",
+    "thisWeek": "本周",
+    "preferences": "偏好设置",
+    "language": "语言",
+    "languageDescription": "选择您的首选语言",
+    "maxMode": "极致模式",
+    "maxModeDescription": "增强分析质量"
+  },
   "aiQuickAsk": {
     "title": "快速询问AI",
     "placeholder": "询问此报告...",

@@ -17,6 +17,7 @@ import NotificationPermissionBanner from '../components/NotificationPermissionBa
 import TableOfContents from '../components/TableOfContents.vue'
 import AIQuickAsk from '../components/AIQuickAsk.vue'
 import TextSelectionPopup from '../components/TextSelectionPopup.vue'
+import SettingsModal from '../components/SettingsModal.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 // Define props
@@ -196,6 +197,7 @@ const selectedStyle = ref('professional') // Default style for research reports
 const isMobileMenuOpen = ref(false)
 const headerActionsRef = ref(null)
 const selectedMode = ref('fact_check')
+const showSettingsModal = ref(false)
 
 // Watch for mode changes to update document title
 watch(selectedMode, (newMode) => {
@@ -861,7 +863,14 @@ const getReportContent = () => {
           <div class="header-actions" ref="headerActionsRef">
             <div class="header-menu-items-wrapper-desktop">
                <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
-               <LanguageSelector />
+               <Button
+                 class="settings-button"
+                 @click="showSettingsModal = true"
+                 size="small"
+               >
+                 <span class="settings-icon">⚙️</span>
+                 <span class="settings-label">Settings</span>
+               </Button>
             </div>
             <Button
               class="mobile-menu-button"
@@ -875,7 +884,14 @@ const getReportContent = () => {
         <div class="header-row-secondary" :class="{ 'collapsed': !isMobileMenuOpen }">
           <div class="secondary-content">
             <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
-            <LanguageSelector />
+            <Button
+              class="settings-button"
+              @click="showSettingsModal = true"
+              size="small"
+            >
+              <span class="settings-icon">⚙️</span>
+              <span class="settings-label">Settings</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -1148,6 +1164,12 @@ const getReportContent = () => {
       :isSessionReady="!!effectiveSessionId"
       @ask-ai="handleTextSelection"
     />
+
+    <!-- Settings Modal -->
+    <SettingsModal
+      :visible="showSettingsModal"
+      @close="showSettingsModal = false"
+    />
   </Layout>
 </template>
 
@@ -1298,6 +1320,37 @@ const getReportContent = () => {
     display: flex;
     align-items: center;
     gap: 16px;
+}
+
+.settings-button {
+  height: 32px !important;
+  border-radius: 6px !important;
+  background: #f8f9fa !important;
+  border: 1px solid #d9d9d9 !important;
+  color: #666666 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  padding: 0 12px !important;
+  min-width: auto !important;
+  gap: 6px !important;
+}
+
+.settings-button:hover {
+  background: #e9ecef !important;
+  border-color: #757575 !important;
+  color: #495057 !important;
+}
+
+.settings-icon {
+  font-size: 14px;
+}
+
+.settings-label {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .mobile-menu-button {

@@ -22,11 +22,31 @@ export function useTextSelection() {
       console.log('Selection changed:', text) // Debug log
 
       if (text.length > 0 && selection.rangeCount > 0) {
+        // Check if the selection is within research or fact-check results
+        const range = selection.getRangeAt(0)
+        const commonAncestor = range.commonAncestorContainer
+        
+        // Find the closest parent element (in case commonAncestor is a text node)
+        let parentElement = commonAncestor.nodeType === Node.TEXT_NODE 
+          ? commonAncestor.parentElement 
+          : commonAncestor
+        
+        // Check if the selection is within research-results or results-container
+        const isInResultsContainer = parentElement.closest('.research-results, .results-container')
+        
+        console.log('Selection in results container:', !!isInResultsContainer) // Debug log
+        
+        if (!isInResultsContainer) {
+          console.log('Selection not in results area, ignoring') // Debug log
+          clearSelection()
+          return
+        }
+
         selectedText.value = text
-        selectionRange.value = selection.getRangeAt(0)
+        selectionRange.value = range
         
         // Get selection position relative to document (not viewport)
-        const rect = selection.getRangeAt(0).getBoundingClientRect()
+        const rect = range.getBoundingClientRect()
         selectionPosition.value = {
           x: rect.left + rect.width / 2 + window.scrollX, // Add horizontal scroll offset
           y: rect.top - 40 + window.scrollY // Position above selection + vertical scroll offset

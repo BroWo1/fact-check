@@ -199,6 +199,53 @@ const headerActionsRef = ref(null)
 const selectedMode = ref('fact_check')
 const showSettingsModal = ref(false)
 
+// Max mode setting (reads from localStorage like in SettingsModal)
+const maxMode = ref(false)
+
+// Load max mode setting from localStorage on mount
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem('settings-max-mode')
+    if (saved !== null) {
+      maxMode.value = JSON.parse(saved)
+    }
+  } catch (error) {
+    console.warn('Failed to load max mode setting:', error)
+  }
+})
+
+// Watch for changes in localStorage (when changed in SettingsModal)
+const checkMaxModeFromStorage = () => {
+  try {
+    const saved = localStorage.getItem('settings-max-mode')
+    if (saved !== null) {
+      maxMode.value = JSON.parse(saved)
+    }
+  } catch (error) {
+    console.warn('Failed to load max mode setting:', error)
+  }
+}
+
+// Listen for storage events to sync across components
+window.addEventListener('storage', (e) => {
+  if (e.key === 'settings-max-mode') {
+    checkMaxModeFromStorage()
+  }
+})
+
+// Also listen for custom events when the settings modal updates the value
+const handleStorageChange = () => {
+  checkMaxModeFromStorage()
+}
+
+// Set up interval to check for changes every second (simple polling)
+const maxModeCheckInterval = setInterval(checkMaxModeFromStorage, 1000)
+
+onUnmounted(() => {
+  clearInterval(maxModeCheckInterval)
+  window.removeEventListener('storage', handleStorageChange)
+})
+
 // Watch for mode changes to update document title
 watch(selectedMode, (newMode) => {
   document.title = newMode === 'fact_check' ? t('app.title') : t('app.researchTitle')
@@ -869,7 +916,7 @@ const getReportContent = () => {
                  size="small"
                >
                  <span class="settings-icon">⚙️</span>
-                 <span class="settings-label">Settings</span>
+                 <span class="settings-label">{{$t('settings.title')}}</span>
                </Button>
             </div>
             <Button
@@ -901,6 +948,7 @@ const getReportContent = () => {
         <div class="hero-section">
           <Title level="1" class="main-title">
             {{ selectedMode === 'fact_check' ? t('app.title') : t('app.researchTitle') }}
+            <span v-if="maxMode" class="max-mode-indicator">MAX</span>
           </Title>
           <Paragraph class="subtitle">
             {{ selectedMode === 'fact_check' ? t('app.subtitle') : t('app.researchSubtitle') }}
@@ -1498,6 +1546,26 @@ const getReportContent = () => {
   margin-bottom: 16px !important;
   letter-spacing: -1px;
   line-height: 1.2;
+  position: relative;
+  display: inline-block;
+  padding: 0 52px;
+}
+
+
+.max-mode-indicator {
+  position: absolute;
+  bottom: 8px;
+  right: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid #757575;
+  font-family: 'DM Sans', 'LXGW WenKai', serif;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+    background: #e9ecef;
+  color: #495057;
 }
 
 .subtitle {
@@ -2087,6 +2155,13 @@ const getReportContent = () => {
 
   .main-title {
     font-size: 36px !important;
+  }
+
+  .max-mode-indicator {
+    font-size: 8px;
+    padding: 1px 4px;
+    bottom: 2px;
+    right: 0;
   }
 
   .subtitle {

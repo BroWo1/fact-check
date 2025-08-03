@@ -116,9 +116,15 @@ const weeklyStats = computed(() => {
   const oneWeekAgo = new Date()
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
   
-  const weeklyAnalyses = savedAnalyses.value.filter(analysis => 
-    new Date(analysis.timestamp) >= oneWeekAgo
-  )
+  const weeklyAnalyses = savedAnalyses.value.filter(analysis => {
+    try {
+      const analysisDate = new Date(analysis.timestamp)
+      return !isNaN(analysisDate.getTime()) && analysisDate >= oneWeekAgo
+    } catch (error) {
+      console.warn('Invalid timestamp format:', analysis.timestamp, error)
+      return false
+    }
+  })
   
   // For now, we'll estimate interactions as 2x analyses (section edits + AI asks)
   // In the future, this could be tracked more precisely

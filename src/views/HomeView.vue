@@ -15,7 +15,7 @@ import ModeSelector from '../components/ModeSelector.vue'
 import SessionRecoveryDialog from '../components/SessionRecoveryDialog.vue'
 import NotificationPermissionBanner from '../components/NotificationPermissionBanner.vue'
 import TableOfContents from '../components/TableOfContents.vue'
-import AIQuickAsk from '../components/AIQuickAsk.vue'
+import AIContainer from '../components/AIContainer.vue'
 import TextSelectionPopup from '../components/TextSelectionPopup.vue'
 import SettingsModal from '../components/SettingsModal.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
@@ -35,7 +35,7 @@ const router = useRouter()
 const uuid = ref(route.params.uuid || props.uuid)
 const tocHeadings = ref([]);
 const isTocCollapsed = ref(true); // Default to collapsed on mobile
-const aiQuickAskRef = ref(null); // Reference to AIQuickAsk component
+const aiContainerRef = ref(null); // Reference to AIContainer component
 
 const showToc = computed(() => {
   return !!results.value && (selectedMode.value === 'research' || selectedMode.value === 'fact_check') && tocHeadings.value.length > 0;
@@ -45,6 +45,7 @@ const showToc = computed(() => {
 const handleHeadingsExtracted = (headings) => {
   tocHeadings.value = headings
 }
+
 
 const handleSectionUpdated = (updatedResults) => {
   console.log('Section updated event received in HomeView')
@@ -59,8 +60,8 @@ const handleSectionUpdated = (updatedResults) => {
 
 // Handle text selection for AI citation
 const handleTextSelection = (selectedText) => {
-  if (aiQuickAskRef.value && aiQuickAskRef.value.handleCitation) {
-    aiQuickAskRef.value.handleCitation(selectedText)
+  if (aiContainerRef.value && aiContainerRef.value.handleCitation) {
+    aiContainerRef.value.handleCitation(selectedText)
   }
 }
 
@@ -1123,8 +1124,8 @@ const getReportContent = () => {
           </div>
         </div>
         <div v-if="showToc" class="ai-ask-wrapper">
-          <AIQuickAsk
-            ref="aiQuickAskRef"
+          <AIContainer
+            ref="aiContainerRef"
             :sessionId="effectiveSessionId"
             :reportContent="getReportContent()"
             :visible="showToc"
@@ -1473,6 +1474,9 @@ const getReportContent = () => {
 .ai-ask-wrapper {
     grid-area: ai-ask-area;
     justify-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Increased gap to prevent overlap */
 }
 
 .results-content-area {

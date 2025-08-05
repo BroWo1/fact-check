@@ -22,6 +22,8 @@ const props = defineProps({
   }
 });
 
+const emit = defineEmits(['collapse-changed']);
+
 const question = ref('');
 const response = ref('');
 const isLoading = ref(false);
@@ -53,6 +55,8 @@ const toggleCollapse = () => {
     isMobileOverlayOpen.value = !isMobileOverlayOpen.value;
   } else {
     isCollapsed.value = !isCollapsed.value;
+    // Emit the collapse state change for desktop
+    emit('collapse-changed', isCollapsed.value);
   }
 };
 
@@ -68,6 +72,8 @@ const checkMobile = () => {
 onMounted(() => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
+  // Emit initial collapse state
+  emit('collapse-changed', isCollapsed.value);
 });
 
 onUnmounted(() => {

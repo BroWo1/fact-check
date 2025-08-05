@@ -161,5 +161,8 @@
     "asking": "询问中...",
     "clear": "清除",
     "response": "AI回应："
+  },
+  "aiPPT": {
+    "title": "AI PPT"
   }
 }

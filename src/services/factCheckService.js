@@ -359,11 +359,195 @@ class FactCheckService {
     throw new Error('Edit processing timeout - maximum polling attempts reached')
   }
 
+  async generatePPT(sessionId, options = {}, onStatusUpdate = null) {
+    // Don't use retry for PPT generation - handle errors directly
+    console.log('Generate PPT request:', {
+      sessionId,
+      reportContentLength: options.reportContent?.length,
+      slideCount: options.slideCount,
+      theme: options.theme
+    })
+    
+    try {
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/generate-ppt/`, {
+        report_content: options.reportContent,
+        slide_count: options.slideCount || 7,
+        theme: options.theme || 'professional'
+      }, {
+        timeout: 120000 // 2 minutes timeout for PPT generation
+      })
+      
+      console.log('Generate PPT response:', response.status, response.data)
+      
+      // Handle async processing (202 response)
+      if (response.status === 202 && response.data.status === 'processing') {
+        console.log('PPT generation is processing, starting polling...')
+        
+        // Notify that we're starting to poll
+        if (onStatusUpdate) {
+          onStatusUpdate('polling', 0, 60)
+        }
+        
+        return await this.pollPPTResult(sessionId, response.data.ppt_id, 60, onStatusUpdate)
+      }
+      
+      // Handle synchronous response (200)
+      if (!response.data.success) {
+        throw new Error(response.data.error?.message || 'PPT generation failed')
+      }
+      
+      return response.data.data
+    } catch (error) {
+      console.error('PPT generation error:', error)
+      throw this.handleError(error)
+    }
+  }
+
+  async pollPPTResult(sessionId, pptId, maxAttempts = 60, onStatusUpdate = null) {
+    let attempts = 0
+    const pollInterval = 3000 // 3 seconds
+    const startTime = Date.now()
+    
+    console.log(`Starting PPT polling for session ${sessionId}, pptId ${pptId}`)
+    console.log(`Poll settings: maxAttempts=${maxAttempts}, interval=${pollInterval}ms`)
+    
+    while (attempts < maxAttempts) {
+      const currentTime = Date.now()
+      const elapsedTime = Math.round((currentTime - startTime) / 1000)
+      
+      try {
+        console.log(`[PPT Poll ${elapsedTime}s] Attempt ${attempts + 1}/${maxAttempts} - Checking status...`)
+        
+        const response = await this.axiosInstance.get(`/fact-check/${sessionId}/ppt-status/${pptId}/`)
+        const data = response.data
+        
+        console.log(`[PPT Poll ${elapsedTime}s] Response:`, {
+          status: data.status,
+          progress: data.progress,
+          message: data.message,
+          fullResponse: data
+        })
+        
+        // Notify about status updates
+        if (onStatusUpdate) {
+          onStatusUpdate(data.status, attempts + 1, maxAttempts, data.progress)
+        }
+        
+        if (data.status === 'completed') {
+          console.log(`[PPT Poll ${elapsedTime}s] ✅ PPT generation completed successfully`)
+          
+          // Get the full PPT data
+          console.log(`[PPT Poll ${elapsedTime}s] Fetching final PPT data...`)
+          const pptResponse = await this.axiosInstance.get(`/fact-check/${sessionId}/ppt-result/${pptId}/`)
+          
+          console.log(`[PPT Poll ${elapsedTime}s] Final PPT data received:`, {
+            slidesCount: pptResponse.data.data?.slides?.length,
+            title: pptResponse.data.data?.title
+          })
+          
+          return pptResponse.data.data
+        } else if (data.status === 'failed') {
+          console.error(`[PPT Poll ${elapsedTime}s] ❌ PPT generation failed:`, data.message)
+          throw new Error(data.message || 'PPT generation failed')
+        } else if (data.status === 'generating' || data.status === 'pending') {
+          console.log(`[PPT Poll ${elapsedTime}s] ⏳ Still ${data.status}... ${data.progress ? `(${data.progress}%)` : ''}`)
+          
+          // Continue polling
+          attempts++
+          if (attempts < maxAttempts) {
+            console.log(`[PPT Poll ${elapsedTime}s] Waiting ${pollInterval}ms before next poll...`)
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+          }
+        } else {
+          console.error(`[PPT Poll ${elapsedTime}s] ❓ Unknown PPT status: ${data.status}`)
+          throw new Error(`Unknown PPT status: ${data.status}`)
+        }
+      } catch (error) {
+        console.error(`[PPT Poll ${elapsedTime}s] 🚨 Polling error:`, {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        })
+        
+        if (error.response?.status === 404) {
+          throw new Error('PPT generation session not found')
+        }
+        throw error
+      }
+    }
+    
+    const totalTime = Math.round((Date.now() - startTime) / 1000)
+    console.error(`[PPT Poll ${totalTime}s] ⏰ PPT generation timeout after ${maxAttempts} attempts`)
+    throw new Error('PPT generation timeout - maximum polling attempts reached')
+  }
+
   async healthCheck() {
     try {
       const response = await this.axiosInstance.get('/health/')
       return response.data
     } catch (error) {
+      throw this.handleError(error)
+    }
+  }
+
+  async generatePPTOutline(sessionId, options = {}) {
+    console.log('Generate PPT outline request:', {
+      sessionId,
+      reportContentLength: options.reportContent?.length,
+      slideCount: options.slideCount,
+      theme: options.theme
+    })
+    
+    try {
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/generate-ppt-outline/`, {
+        report_content: options.reportContent,
+        slide_count: options.slideCount || 7,
+        theme: options.theme || 'professional'
+      }, {
+        timeout: 120000 // 2 minutes timeout for outline generation
+      })
+      
+      console.log('Generate PPT outline response:', response.status, response.data)
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error?.message || 'PPT outline generation failed')
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('PPT outline generation error:', error)
+      throw this.handleError(error)
+    }
+  }
+
+  async generateSingleSlide(sessionId, options = {}) {
+    console.log('Generate single slide request:', {
+      sessionId,
+      slideId: options.slide_info?.id,
+      slideTitle: options.slide_info?.title,
+      reportContentLength: options.report_content?.length,
+      theme: options.theme
+    })
+    
+    try {
+      const response = await this.axiosInstance.post(`/fact-check/${sessionId}/generate-single-slide/`, {
+        slide_info: options.slide_info,
+        report_content: options.report_content,
+        theme: options.theme || 'professional'
+      }, {
+        timeout: 180000 // 3 minutes timeout for single slide generation
+      })
+      
+      console.log('Generate single slide response:', response.status, response.data)
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error?.message || 'Single slide generation failed')
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('Single slide generation error:', error)
       throw this.handleError(error)
     }
   }

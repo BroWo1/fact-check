@@ -3,8 +3,12 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button, message, Modal } from 'ant-design-vue';
 import factCheckService from '../services/factCheckService';
+import { usePPTGenerations } from '../composables/usePPTGenerations';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const { t } = useI18n();
+const { recordPPTGeneration } = usePPTGenerations();
 
 const props = defineProps({
   sessionId: {
@@ -36,6 +40,9 @@ const isCollapsed = ref(true);
 const savedPPT = ref(null);
 const showPPTModal = ref(false);
 const currentSlideIndex = ref(0);
+const scrollContainer = ref(null);
+const slideElements = ref([]);
+const isScrolling = ref(false);
 const showHTMLCode = ref(false);
 const currentSlideHTML = ref('');
 const isEditMode = ref(false);
@@ -45,10 +52,10 @@ const editingText = ref('');
 const showTextEditor = ref(false);
 const editorPosition = ref({ x: 0, y: 0 });
 const textEditorInput = ref(null);
-const slideContainerRef = ref(null);
-const slideIframeRef = ref(null);
+// Removed unused refs: slideContainerRef, slideIframeRef
 const visualEditContainer = ref(null);
 const editModeIframe = ref(null);
+const isGeneratingPDF = ref(false);
 
 // PPT generation progress tracking
 const generationProgress = ref({
@@ -114,19 +121,55 @@ const checkMobile = () => {
 
 // Scale the fixed-size 1280x720 slide inside the iframe to fit its container
 const fitSlide = () => {
-  const W = 1280, H = 720;
-  const c = slideContainerRef.value;
-  const f = slideIframeRef.value;
-  if (!c || !f) return;
-  const scale = Math.min(c.clientWidth / W, c.clientHeight / H);
-  f.style.width = W + 'px';
-  f.style.height = H + 'px';
-  // Center the iframe
-  f.style.transformOrigin = 'center center';
-  f.style.position = 'absolute';
-  f.style.top = '50%';
-  f.style.left = '50%';
-  f.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  // This function is now used for individual slide scaling in the scrollable view
+  slideElements.value.forEach((slideElement) => {
+    if (!slideElement) return;
+    const slideContainer = slideElement.querySelector('.slide-container-scrollable');
+    const iframe = slideElement.querySelector('iframe');
+    if (!slideContainer || !iframe) return;
+    
+    const W = 1280, H = 720;
+    const containerWidth = slideContainer.clientWidth;
+    const containerHeight = slideContainer.clientHeight;
+    const scale = Math.min(containerWidth / W, containerHeight / H);
+    
+    iframe.style.width = W + 'px';
+    iframe.style.height = H + 'px';
+    iframe.style.transform = `scale(${scale})`;
+    iframe.style.transformOrigin = 'center center';
+    iframe.style.position = 'absolute';
+    iframe.style.top = '50%';
+    iframe.style.left = '50%';
+    iframe.style.marginTop = `-${H/2}px`;
+    iframe.style.marginLeft = `-${W/2}px`;
+  });
+};
+
+// Function to handle scroll events and update current slide index
+const handleScroll = () => {
+  if (isScrolling.value || !scrollContainer.value) return;
+  
+  const container = scrollContainer.value;
+  const containerTop = container.scrollTop;
+  const containerHeight = container.clientHeight;
+  const centerPoint = containerTop + containerHeight / 2;
+  
+  // Find which slide is currently in the center of the viewport
+  let newIndex = 0;
+  slideElements.value.forEach((slideElement, index) => {
+    if (!slideElement) return;
+    const slideTop = slideElement.offsetTop;
+    const slideHeight = slideElement.offsetHeight;
+    const slideCenter = slideTop + slideHeight / 2;
+    
+    if (slideCenter <= centerPoint) {
+      newIndex = index;
+    }
+  });
+  
+  if (newIndex !== currentSlideIndex.value) {
+    currentSlideIndex.value = newIndex;
+  }
 };
 
 // Scale edit mode iframe similarly
@@ -135,10 +178,21 @@ const fitEditSlide = () => {
   const c = visualEditContainer.value;
   const f = editModeIframe.value;
   if (!c || !f) return;
-  const scale = Math.min(c.clientWidth / W, c.clientHeight / H);
+  
+  // Get the actual available space
+  const containerRect = c.getBoundingClientRect();
+  const availableWidth = containerRect.width - 48; // Account for padding
+  const availableHeight = containerRect.height - 48; // Account for padding
+  
+  // Calculate scale to fit completely within container
+  const scaleX = availableWidth / W;
+  const scaleY = availableHeight / H;
+  const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
+  
+  console.log('Edit mode scale:', scale, 'available:', availableWidth, 'x', availableHeight);
+  
   f.style.width = W + 'px';
   f.style.height = H + 'px';
-  // Center the iframe
   f.style.transformOrigin = 'center center';
   f.style.position = 'absolute';
   f.style.top = '50%';
@@ -161,12 +215,91 @@ onUnmounted(() => {
   window.removeEventListener('resize', fitSlide);
 });
 
+// Watch for sessionId changes to refresh PPT data when loading different conversations
+watch(() => props.sessionId, (newSessionId, oldSessionId) => {
+  if (newSessionId !== oldSessionId && newSessionId) {
+    // Clear existing PPT state
+    savedPPT.value = null;
+    isGenerating.value = false;
+    generationProgress.value = {
+      current: 0,
+      total: 0,
+      currentTask: '',
+      failedSlides: [],
+      isComplete: false
+    };
+    
+    // Load PPT for the new session
+    loadSavedPPT();
+  }
+}, { immediate: false });
+
 watch(showPPTModal, (open) => {
-  if (open) nextTick(fitSlide);
+  if (open) {
+    nextTick(() => {
+      // Small delay to ensure DOM is fully rendered
+      setTimeout(() => {
+        fitSlide();
+        // Set up scroll listener
+        if (scrollContainer.value) {
+          scrollContainer.value.addEventListener('scroll', handleScroll);
+        }
+      }, 100);
+    });
+  } else {
+    // Clean up scroll listener
+    if (scrollContainer.value) {
+      scrollContainer.value.removeEventListener('scroll', handleScroll);
+    }
+  }
 });
 watch(currentSlideIndex, () => nextTick(fitSlide));
+watch(savedPPT, (newPPT) => {
+  if (newPPT && showPPTModal.value) {
+    nextTick(() => {
+      setTimeout(fitSlide, 100);
+    });
+  }
+});
 watch(isEditMode, (editing) => {
-  if (editing) nextTick(fitEditSlide);
+  if (editing) {
+    nextTick(fitEditSlide);
+  } else {
+    // When exiting edit mode, scroll back to the current slide
+    nextTick(() => {
+      setTimeout(() => {
+        if (scrollContainer.value && slideElements.value[currentSlideIndex.value]) {
+          slideElements.value[currentSlideIndex.value].scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      }, 100);
+    });
+  }
+});
+
+watch(showHTMLCode, (showingHTML) => {
+  if (!showingHTML && showPPTModal.value) {
+    // When returning from HTML view to scrollable view, re-setup scroll listener
+    nextTick(() => {
+      setTimeout(() => {
+        if (scrollContainer.value) {
+          // Clean up any existing listener first
+          scrollContainer.value.removeEventListener('scroll', handleScroll);
+          // Add the scroll listener
+          scrollContainer.value.addEventListener('scroll', handleScroll);
+          // Scroll to current slide to maintain position
+          if (slideElements.value[currentSlideIndex.value]) {
+            slideElements.value[currentSlideIndex.value].scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }
+      }, 100);
+    });
+  }
 });
 
 // Load saved PPT from localStorage
@@ -222,7 +355,6 @@ const generatePPT = async () => {
 
     // Step 2: Generate slides one by one with enhanced retry logic
     const slides = [];
-    const failedSlides = [];
 
     for (let i = 0; i < outline.length; i++) {
       const slideInfo = outline[i];
@@ -231,7 +363,7 @@ const generatePPT = async () => {
 
       let slideResult = null;
       let attempts = 0;
-      const maxAttempts = 3; // Increased retry attempts
+      const maxAttempts = 2; // Reduced to avoid server overload
 
       while (attempts < maxAttempts && !slideResult) {
         try {
@@ -239,6 +371,8 @@ const generatePPT = async () => {
           if (attempts > 1) {
             generationProgress.value.currentTask = `Retrying slide ${i + 1}: ${slideInfo.title} (attempt ${attempts}/${maxAttempts})`;
           }
+
+          console.log(`Starting generation of slide ${i + 1} (${slideInfo.title}), attempt ${attempts}`);
 
           const result = await factCheckService.generateSingleSlide(props.sessionId, {
             slide_info: slideInfo,
@@ -251,18 +385,26 @@ const generatePPT = async () => {
             // Ensure slide has proper index for ordering
             slideResult.index = i;
             slideResult.slideId = slideInfo.id;
+            console.log(`Slide ${i + 1} generated successfully on attempt ${attempts}`);
           } else {
             console.error(`Failed to generate slide ${slideInfo.id} (attempt ${attempts}):`, result.error);
-            // Wait before retrying
+            // Wait longer before retrying to avoid server overload
             if (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              console.log(`Waiting 5 seconds before retrying slide ${i + 1}...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
             }
           }
         } catch (slideError) {
           console.error(`Error generating slide ${slideInfo.id} (attempt ${attempts}):`, slideError);
-          // Wait before retrying
+          // Wait before retrying, especially for server errors
           if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (slideError.status === 500) {
+              console.log(`Server error on slide ${i + 1}, waiting 10 seconds before retry...`);
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            } else {
+              console.log(`Waiting 5 seconds before retrying slide ${i + 1}...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
           }
         }
       }
@@ -272,14 +414,13 @@ const generatePPT = async () => {
         generationProgress.value.current = i + 1;
       } else {
         // Track failed slide with complete info for regeneration
-        failedSlides.push({
+        generationProgress.value.failedSlides.push({
           id: slideInfo.id,
           title: slideInfo.title,
           description: slideInfo.description || '',
           index: i,
           slideInfo: slideInfo // Keep original slide info for regeneration
         });
-        generationProgress.value.failedSlides = failedSlides;
       }
     }
 
@@ -297,14 +438,17 @@ const generatePPT = async () => {
       title: 'Analysis Report Presentation',
       createdAt: outlineResult.data.createdAt || new Date().toISOString(),
       slides: slides.sort((a, b) => a.index - b.index), // Ensure proper ordering
-      failedSlides: failedSlides,
+      failedSlides: generationProgress.value.failedSlides,
       totalSlides: outline.length
     };
 
     savePPT(pptData);
 
-    if (failedSlides.length > 0) {
-      message.warning(`PPT generated with ${slides.length}/${outline.length} slides. ${failedSlides.length} slides failed - you can regenerate them individually.`);
+    // Record the PPT generation for statistics
+    recordPPTGeneration(props.sessionId, slides.length);
+
+    if (generationProgress.value.failedSlides.length > 0) {
+      message.warning(`PPT generated with ${slides.length}/${outline.length} slides. ${generationProgress.value.failedSlides.length} slides failed - you can regenerate them individually.`);
     } else {
       message.success(`PPT generated successfully with ${slides.length} slides!`);
     }
@@ -328,77 +472,6 @@ const generatePPT = async () => {
   }
 };
 
-const generatePPTStepByStep = async () => {
-  if (!props.sessionId) {
-    message.error('No active session found. Please wait for the analysis to complete.');
-    return;
-  }
-
-  isGenerating.value = true;
-
-  try {
-    // Step 1: Generate outline
-    message.info('Generating PPT outline...');
-    const outlineResult = await factCheckService.generatePPTOutline(props.sessionId, {
-      reportContent: props.reportContent,
-      slideCount: 7,
-      theme: 'professional'
-    });
-
-    if (!outlineResult.success) {
-      throw new Error(outlineResult.error?.message || 'Failed to generate PPT outline');
-    }
-
-    const { pptId, outline } = outlineResult.data;
-    message.success('PPT outline generated! Now generating slides...');
-
-    // Step 2: Generate slides one by one
-    const slides = [];
-    for (let i = 0; i < outline.length; i++) {
-      const slideInfo = outline[i];
-      message.info(`Generating slide ${i + 1} of ${outline.length}...`);
-
-      try {
-        const slideResult = await factCheckService.generateSingleSlide(props.sessionId, {
-          slide_info: slideInfo,
-          report_content: props.reportContent,
-          theme: 'professional'
-        });
-
-        if (slideResult.success) {
-          slides.push(slideResult.data);
-        } else {
-          console.error(`Failed to generate slide ${slideInfo.id}:`, slideResult.error);
-          message.warning(`Slide ${slideInfo.id} generation failed, continuing with others...`);
-        }
-      } catch (slideError) {
-        console.error(`Error generating slide ${slideInfo.id}:`, slideError);
-        message.warning(`Slide ${slideInfo.id} generation failed, continuing with others...`);
-      }
-    }
-
-    if (slides.length === 0) {
-      throw new Error('No slides were generated successfully');
-    }
-
-    // Step 3: Save the completed PPT
-    const pptData = {
-      pptId,
-      title: 'Analysis Report Presentation (Step-by-Step)',
-      createdAt: outlineResult.data.createdAt || new Date().toISOString(),
-      slides: slides
-    };
-
-    savePPT(pptData);
-    message.success(`PPT generated successfully with ${slides.length} slides!`);
-
-  } catch (error) {
-    console.error('Step-by-step PPT generation failed:', error);
-    message.error(error.message || 'Failed to generate PPT step-by-step');
-  } finally {
-    isGenerating.value = false;
-  }
-};
 
 const openPPTModal = () => {
   if (savedPPT.value) {
@@ -413,17 +486,29 @@ const closePPTModal = () => {
 
 const goToSlide = (index) => {
   currentSlideIndex.value = index;
+  // Scroll to the selected slide
+  if (scrollContainer.value && slideElements.value[index]) {
+    isScrolling.value = true;
+    slideElements.value[index].scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+    // Reset scrolling flag after animation
+    setTimeout(() => {
+      isScrolling.value = false;
+    }, 1000);
+  }
 };
 
 const nextSlide = () => {
   if (currentSlideIndex.value < savedPPT.value.slides.length - 1) {
-    currentSlideIndex.value++;
+    goToSlide(currentSlideIndex.value + 1);
   }
 };
 
 const prevSlide = () => {
   if (currentSlideIndex.value > 0) {
-    currentSlideIndex.value--;
+    goToSlide(currentSlideIndex.value - 1);
   }
 };
 
@@ -542,6 +627,11 @@ const setupEditMode = () => {
             // Select current element
             el.classList.add('selected');
             selectedElement.value = el;
+            
+            // Remove any overlay before getting text content to avoid including tag name
+            const overlay = el.querySelector('.edit-mode-overlay');
+            if (overlay) overlay.remove();
+            
             editingText.value = el.textContent.trim();
             console.log('Setting editingText to:', editingText.value);
             // Get the modal container for positioning
@@ -764,12 +854,10 @@ const regenerateFailedSlide = async (failedSlide) => {
     return;
   }
 
-  // Set loading state for this specific slide
-  const slideLoadingKey = `slide_${failedSlide.id}`;
   isGenerating.value = true;
 
   try {
-    message.info(`Regenerating slide: ${failedSlide.title}`);
+    message.info(`Regenerating slide ${failedSlide.index + 1}...`);
 
     // Use the original slide info if available, otherwise reconstruct
     const slideInfo = failedSlide.slideInfo || {
@@ -785,32 +873,36 @@ const regenerateFailedSlide = async (failedSlide) => {
     });
 
     if (result.success) {
-      // Update the saved PPT with the new slide
-      const currentPPT = { ...savedPPT.value };
-      const newSlide = { ...result.data, index: failedSlide.index, slideId: failedSlide.id };
+      // Deep clone the current PPT to avoid mutation issues
+      const currentPPT = JSON.parse(JSON.stringify(savedPPT.value));
+      
+      // Create the new slide
+      const newSlide = {
+        ...result.data,
+        id: failedSlide.id,
+        title: failedSlide.title
+      };
 
-      // Find if there's already a slide at this position and replace it, or insert at correct position
-      const existingSlideIndex = currentPPT.slides.findIndex(slide => slide.index === failedSlide.index);
-
-      if (existingSlideIndex !== -1) {
-        // Replace existing slide
-        currentPPT.slides[existingSlideIndex] = newSlide;
-      } else {
-        // Insert at correct position
-        currentPPT.slides.push(newSlide);
-        currentPPT.slides.sort((a, b) => a.index - b.index);
-      }
+      // Insert the slide at the correct position
+      currentPPT.slides.splice(failedSlide.index, 0, newSlide);
 
       // Remove this slide from failed slides list
       if (currentPPT.failedSlides) {
         currentPPT.failedSlides = currentPPT.failedSlides.filter(slide => slide.id !== failedSlide.id);
+        // Remove the property if no more failed slides
+        if (currentPPT.failedSlides.length === 0) {
+          delete currentPPT.failedSlides;
+        }
       }
 
+      // Save and force reactivity update
       savePPT(currentPPT);
-      message.success(`Slide "${failedSlide.title}" regenerated successfully!`);
+      savedPPT.value = currentPPT;
+
+      message.success(`Slide ${failedSlide.index + 1} regenerated successfully!`);
 
       // If no more failed slides, show completion message
-      if (currentPPT.failedSlides.length === 0) {
+      if (!currentPPT.failedSlides || currentPPT.failedSlides.length === 0) {
         message.success(`All slides generated successfully! PPT now has ${currentPPT.slides.length} slides.`);
       }
     } else {
@@ -818,9 +910,137 @@ const regenerateFailedSlide = async (failedSlide) => {
     }
   } catch (error) {
     console.error('Slide regeneration failed:', error);
-    message.error(`Failed to regenerate "${failedSlide.title}": ${error.message || 'Unknown error'}`);
+    message.error(`Failed to regenerate slide ${failedSlide.index + 1}: ${error.message || 'Unknown error'}`);
   } finally {
     isGenerating.value = false;
+  }
+};
+
+const downloadPDF = async () => {
+  if (!savedPPT.value || savedPPT.value.slides.length === 0) {
+    message.error('No slides available to export to PDF');
+    return;
+  }
+
+  isGeneratingPDF.value = true;
+
+  try {
+    message.info('Generating PDF... This may take a moment for multiple slides.');
+
+    // Create a new jsPDF instance
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // A4 landscape dimensions in mm
+    const pageWidth = 297;
+    const pageHeight = 210;
+    const margin = 10;
+    const contentWidth = pageWidth - (margin * 2);
+    const contentHeight = pageHeight - (margin * 2);
+
+    // Calculate scale to fit 16:9 slide within A4 landscape with margins
+    const slideAspectRatio = 16 / 9;
+    const availableAspectRatio = contentWidth / contentHeight;
+    
+    let slideWidth, slideHeight;
+    if (slideAspectRatio > availableAspectRatio) {
+      // Slide is wider than available space, fit to width
+      slideWidth = contentWidth;
+      slideHeight = contentWidth / slideAspectRatio;
+    } else {
+      // Slide is taller than available space, fit to height
+      slideHeight = contentHeight;
+      slideWidth = contentHeight * slideAspectRatio;
+    }
+
+    // Center the slide on the page
+    const xOffset = margin + (contentWidth - slideWidth) / 2;
+    const yOffset = margin + (contentHeight - slideHeight) / 2;
+
+    let isFirstSlide = true;
+
+    for (let i = 0; i < savedPPT.value.slides.length; i++) {
+      const slide = savedPPT.value.slides[i];
+      
+      // Create a temporary iframe to render the slide
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px'; // Hide offscreen
+      iframe.style.width = '1280px';
+      iframe.style.height = '720px';
+      iframe.style.border = 'none';
+      iframe.srcdoc = slide.content;
+      
+      document.body.appendChild(iframe);
+
+      // Wait for iframe to load
+      await new Promise((resolve) => {
+        iframe.onload = resolve;
+        // Fallback timeout
+        setTimeout(resolve, 2000);
+      });
+
+      try {
+        // Capture the iframe content
+        const canvas = await html2canvas(iframe.contentDocument.body, {
+          width: 1280,
+          height: 720,
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        });
+
+        // Add a new page for each slide except the first
+        if (!isFirstSlide) {
+          pdf.addPage();
+        }
+        isFirstSlide = false;
+
+        // Convert canvas to image and add to PDF
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', xOffset, yOffset, slideWidth, slideHeight);
+
+        // Add slide number
+        pdf.setFontSize(10);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text(`${i + 1} / ${savedPPT.value.slides.length}`, pageWidth - margin - 20, pageHeight - margin + 5);
+
+      } catch (error) {
+        console.error(`Error capturing slide ${i + 1}:`, error);
+        // Add error placeholder
+        if (!isFirstSlide) {
+          pdf.addPage();
+        }
+        isFirstSlide = false;
+        
+        pdf.setFontSize(16);
+        pdf.setTextColor(255, 0, 0);
+        pdf.text(`Error loading slide ${i + 1}`, xOffset + 20, yOffset + 20);
+      } finally {
+        // Clean up the temporary iframe
+        document.body.removeChild(iframe);
+      }
+    }
+
+    // Generate filename with timestamp
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+    const filename = `${savedPPT.value.title.replace(/[^a-z0-9]/gi, '_')}_${timestamp}.pdf`;
+
+    // Save the PDF
+    pdf.save(filename);
+    
+    message.success(`PDF downloaded successfully: ${filename}`);
+
+  } catch (error) {
+    console.error('PDF generation failed:', error);
+    message.error('Failed to generate PDF: ' + (error.message || 'Unknown error'));
+  } finally {
+    isGeneratingPDF.value = false;
   }
 };
 </script>
@@ -843,7 +1063,7 @@ const regenerateFailedSlide = async (failedSlide) => {
       <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
       <div class="mobile-overlay-content">
         <div class="mobile-header">
-          <h4 class="mobile-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }}</h4>
+          <h4 class="mobile-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
           <button class="mobile-close-button" @click="closeMobileOverlay">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M12 4l-8 8m0-8l8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -903,7 +1123,7 @@ const regenerateFailedSlide = async (failedSlide) => {
               </div>
               <div class="failed-slides-list">
                 <div v-for="failedSlide in savedPPT.failedSlides" :key="failedSlide.id" class="failed-slide-item">
-                  <span class="failed-slide-title">{{ failedSlide.title }}</span>
+                  <span class="failed-slide-title">Slide {{ failedSlide.index + 1 }}</span>
                   <Button
                     size="small"
                     @click="regenerateFailedSlide(failedSlide)"
@@ -947,7 +1167,7 @@ const regenerateFailedSlide = async (failedSlide) => {
   <transition name="ai-ppt-generator-fade">
     <div v-if="visible && !isMobile" class="ai-ppt-generator-container" :style="{ top: dynamicTopPosition, maxHeight: dynamicMaxHeight }">
       <div class="ai-ppt-generator-header" @click="toggleCollapse" :class="{ 'collapsed': isCollapsed }">
-        <h4 class="ai-ppt-generator-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }}</h4>
+        <h4 class="ai-ppt-generator-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
         <div class="collapse-indicator" :class="{ 'collapsed': isCollapsed }">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1008,7 +1228,7 @@ const regenerateFailedSlide = async (failedSlide) => {
               </div>
               <div class="failed-slides-list">
                 <div v-for="failedSlide in savedPPT.failedSlides" :key="failedSlide.id" class="failed-slide-item">
-                  <span class="failed-slide-title">{{ failedSlide.title }}</span>
+                  <span class="failed-slide-title">Slide {{ failedSlide.index + 1 }}</span>
                   <Button
                     size="small"
                     @click="regenerateFailedSlide(failedSlide)"
@@ -1068,6 +1288,9 @@ const regenerateFailedSlide = async (failedSlide) => {
             {{ currentSlideIndex + 1 }} / {{ savedPPT.slides.length }}
           </span>
           <div class="modal-buttons">
+            <button @click="downloadPDF" class="pdf-download-button" :disabled="isGeneratingPDF" v-if="!showHTMLCode && !isEditMode">
+              {{ isGeneratingPDF ? 'Generating...' : '📄 Download PDF' }}
+            </button>
             <button @click="toggleEditMode" class="edit-button" :class="{ 'active': isEditMode }" v-if="!showHTMLCode">
               {{ isEditMode ? 'Exit Edit' : 'Edit Slide' }}
             </button>
@@ -1115,33 +1338,45 @@ const regenerateFailedSlide = async (failedSlide) => {
             <button
               @click="prevSlide"
               :disabled="currentSlideIndex === 0"
-              class="nav-button prev-button"
+              class="nav-button up-button"
+              title="Previous slide"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M10 12l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 10l-4-4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
             <button
               @click="nextSlide"
               :disabled="currentSlideIndex === savedPPT.slides.length - 1"
-              class="nav-button next-button"
+              class="nav-button down-button"
+              title="Next slide"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
           </div>
 
-          <div v-if="!showHTMLCode && !isEditMode" class="slide-container" ref="slideContainerRef">
-            <iframe
-              v-if="savedPPT.slides[currentSlideIndex]"
-              :srcdoc="savedPPT.slides[currentSlideIndex].content"
-              class="slide-iframe"
-              ref="slideIframeRef"
-              frameborder="0"
-              scrolling="no"
-              @load="fitSlide"
-            ></iframe>
+          <!-- Scrollable Slides Container -->
+          <div v-if="!showHTMLCode && !isEditMode" class="slides-scroll-container" ref="scrollContainer">
+            <div
+              v-for="(slide, index) in savedPPT.slides"
+              :key="slide.id || index"
+              :ref="el => slideElements[index] = el"
+              class="slide-item"
+              :class="{ 'active': index === currentSlideIndex }"
+            >
+              <div class="slide-number">{{ index + 1 }} / {{ savedPPT.slides.length }}</div>
+              <div class="slide-container-scrollable">
+                <iframe
+                  :srcdoc="slide.content"
+                  class="slide-iframe-scrollable"
+                  frameborder="0"
+                  scrolling="no"
+                  @load="fitSlide"
+                ></iframe>
+              </div>
+            </div>
           </div>
 
           <!-- Visual Edit Mode -->
@@ -1286,6 +1521,18 @@ const regenerateFailedSlide = async (failedSlide) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.beta-indicator {
+  background: #ff6b35;
+  color: white;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .collapse-indicator {
@@ -1827,6 +2074,32 @@ const regenerateFailedSlide = async (failedSlide) => {
   color: #ffffff;
 }
 
+.pdf-download-button {
+  background: #28a745;
+  border: 1px solid #28a745;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-weight: 600;
+}
+
+.pdf-download-button:hover:not(:disabled) {
+  background: #218838;
+  border-color: #218838;
+  transform: translateY(-1px);
+}
+
+.pdf-download-button:disabled {
+  background: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .html-code-container {
   flex: 1;
   background: #ffffff;
@@ -2069,15 +2342,11 @@ const regenerateFailedSlide = async (failedSlide) => {
 }
 
 .edit-mode-iframe {
-  width: 100%;
-  height: 100%;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   background: #ffffff;
-  min-height: 500px;
-  max-width: 100%;
-  object-fit: contain;
+  /* Dimensions and positioning handled by JavaScript */
 }
 
 /* Floating Text Editor */
@@ -2255,6 +2524,10 @@ const regenerateFailedSlide = async (failedSlide) => {
   border: none;
   position: absolute;
   border-radius: 4px;
+  top: 50%;
+  left: 50%;
+  margin-top: -360px; /* Half of original height (720 / 2) */
+  margin-left: -640px; /* Half of original width (1280 / 2) */
 }
 
 .thumbnail-overlay {
@@ -2289,13 +2562,12 @@ const regenerateFailedSlide = async (failedSlide) => {
 
 .slide-navigation {
   position: absolute;
+  right: 16px;
   top: 50%;
-  left: 0;
-  right: 0;
   transform: translateY(-50%);
   display: flex;
-  justify-content: space-between;
-  padding: 0 16px;
+  flex-direction: column;
+  gap: 12px;
   z-index: 10;
   pointer-events: none;
 }
@@ -2392,63 +2664,64 @@ const regenerateFailedSlide = async (failedSlide) => {
   transform: translateY(-100%) scale(0.95);
   opacity: 0;
 }
-/* Scaled slide viewer (keeps 16:9, removes inner scrolling) */
-.slide-viewer {
-  display: flex;
-  flex-direction: column;
+/* Scrollable slides container styles */
+.slides-scroll-container {
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f8f9fa;
+  padding: 24px 0;
+  scroll-behavior: smooth;
 }
 
-.slide-container {
+.slide-item {
+  margin: 0 auto 32px auto;
+  max-width: calc(100% - 48px);
+  position: relative;
+  padding: 0 24px;
+  transition: opacity 0.3s ease;
+}
+
+.slide-item:last-child {
+  margin-bottom: 24px;
+}
+
+.slide-item.active .slide-number {
+  background: #000000;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.slide-number {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  color: #666666;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  display: inline-block;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.slide-container-scrollable {
   position: relative;
   width: 100%;
-  max-width: 90%;
   aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: transparent;
-  margin: 0 auto;
-}
-
-.slide-iframe {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: #ffffff;
-  transform-origin: center center;
-  /* width & height set to 1280x720 by script, then scaled */
-}
-
-.slide-viewer {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;  /* allow shrinking in flex layout */
-  min-height: 0; /* allow shrinking in flex layout */
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-}
-
-.slide-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
 }
 
-.slide-iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border: 0;
-  transform-origin: 0 0;
-  /* width & height are set to 1280x720 by script, then scaled */
+.slide-iframe-scrollable {
+  border: none;
+  background: #ffffff;
+  /* Positioning and scaling handled by JavaScript */
 }
 
 /* Responsive adjustments */
@@ -2484,6 +2757,8 @@ const regenerateFailedSlide = async (failedSlide) => {
     height: 720px;
     transform: scale(0.055);
     transform-origin: center center;
+    margin-top: -360px; /* Half of original height (720 / 2) */
+    margin-left: -640px; /* Half of original width (1280 / 2) */
   }
 
   .thumbnail-overlay {
@@ -2526,8 +2801,14 @@ const regenerateFailedSlide = async (failedSlide) => {
     align-self: flex-end;
   }
 
-  .slide-container {
-    padding: 16px;
+  .slides-scroll-container {
+    padding: 16px 0;
+  }
+  
+  .slide-item {
+    max-width: calc(100% - 24px);
+    margin-bottom: 24px;
+    padding: 0 12px;
   }
 
   .ppt-modal-body {
@@ -2577,6 +2858,8 @@ const regenerateFailedSlide = async (failedSlide) => {
     height: 720px;
     transform: scale(0.075);
     transform-origin: center center;
+    margin-top: -360px; /* Half of original height (720 / 2) */
+    margin-left: -640px; /* Half of original width (1280 / 2) */
   }
 
   .slide-iframe {
@@ -2592,6 +2875,8 @@ const regenerateFailedSlide = async (failedSlide) => {
     height: 720px;
     transform: scale(0.15);
     transform-origin: center center;
+    margin-top: -360px; /* Half of original height (720 / 2) */
+    margin-left: -640px; /* Half of original width (1280 / 2) */
   }
 }
 </style>

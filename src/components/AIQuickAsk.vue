@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, Teleport } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Input, Button, Typography, message } from 'ant-design-vue';
 import { marked } from 'marked';
@@ -69,15 +69,32 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth <= 1200;
 };
 
+const handleMobileOpen = () => {
+  console.log('AIQuickAsk received open-ai-quick-ask-mobile event, isMobile:', isMobile.value, 'visible:', props.visible);
+  console.log('DOM element with mobile-overlay class:', document.querySelector('.mobile-overlay'));
+  if (isMobile.value) {
+    console.log('Opening mobile overlay');
+    isMobileOverlayOpen.value = true;
+    // Check again after setting
+    setTimeout(() => {
+      console.log('After opening - mobile overlay element:', document.querySelector('.mobile-overlay'));
+      console.log('isMobileOverlayOpen:', isMobileOverlayOpen.value);
+    }, 50);
+  }
+};
+
 onMounted(() => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
+  // Listen for custom event to open mobile modal
+  window.addEventListener('open-ai-quick-ask-mobile', handleMobileOpen);
   // Emit initial collapse state
   emit('collapse-changed', isCollapsed.value);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
+  window.removeEventListener('open-ai-quick-ask-mobile', handleMobileOpen);
 });
 
 const handleSubmit = async () => {
@@ -176,11 +193,12 @@ defineExpose({
     </button>
   </div>
 
-  <!-- Mobile Overlay -->
-  <transition name="mobile-overlay">
-    <div v-if="isMobile && isMobileOverlayOpen" class="mobile-overlay">
-      <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
-      <div class="mobile-overlay-content">
+  <!-- Mobile Overlay - render to body to avoid parent display:none -->
+  <Teleport to="body">
+    <transition name="mobile-overlay">
+      <div v-if="isMobile && isMobileOverlayOpen" class="mobile-overlay">
+        <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
+        <div class="mobile-overlay-content">
         <div class="mobile-header">
           <h4 class="mobile-title">🤖 {{ t('aiQuickAsk.title') || 'Quick Ask AI' }}</h4>
           <button class="mobile-close-button" @click="closeMobileOverlay">
@@ -248,6 +266,7 @@ defineExpose({
       </div>
     </div>
   </transition>
+  </Teleport>
 
   <!-- Desktop Version -->
   <transition name="ai-quick-ask-fade">

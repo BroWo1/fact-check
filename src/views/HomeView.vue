@@ -347,6 +347,13 @@ const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behav
 // Track if we've already attempted to load from UUID to prevent duplicates
 const hasAttemptedUuidLoad = ref(false)
 
+// Mobile detection
+const isMobile = ref(false)
+
+// Mobile AI tools menu
+const showAIToolsMenu = ref(false)
+const isAIToolsPopupOpen = ref(false)
+
 // Back to top functionality
 const showBackToTop = ref(false)
 const SCROLL_STORAGE_KEY = 'homeview-scroll-position'
@@ -354,6 +361,7 @@ let scrollSaveTimeout = null
 
 const handleScroll = () => {
   showBackToTop.value = window.scrollY > 300
+  showAIToolsMenu.value = window.scrollY > 300 && isMobile.value
   
   // Debounce scroll position saving to avoid excessive localStorage writes
   if (scrollSaveTimeout) {
@@ -381,6 +389,35 @@ const scrollToTop = () => {
   } catch (error) {
     console.warn('Failed to clear scroll position:', error)
   }
+}
+
+const checkMobileState = () => {
+  isMobile.value = window.innerWidth <= 1200
+  showAIToolsMenu.value = window.scrollY > 300 && isMobile.value
+}
+
+const toggleAIToolsPopup = () => {
+  isAIToolsPopupOpen.value = !isAIToolsPopupOpen.value
+}
+
+const closeAIToolsPopup = () => {
+  isAIToolsPopupOpen.value = false
+}
+
+const openAIQuickAsk = () => {
+  // Close popup first
+  closeAIToolsPopup()
+  // Trigger the mobile overlay through a custom event with a small delay
+  setTimeout(() => {
+    console.log('Dispatching open-ai-quick-ask-mobile event')
+    window.dispatchEvent(new CustomEvent('open-ai-quick-ask-mobile'))
+  }, 100)
+}
+
+const openAIPPT = () => {
+  // For now, show unavailable message
+  // In the future, this will open the AI PPT mobile modal
+  closeAIToolsPopup()
 }
 
 const restoreScrollPosition = () => {
@@ -533,6 +570,11 @@ const handleClickOutside = (event) => {
       isMobileMenuOpen.value = false;
     }
   }
+  
+  // Close AI tools popup when clicking outside
+  if (isAIToolsPopupOpen.value && !event.target.closest('.ai-tools-container')) {
+    closeAIToolsPopup()
+  }
 };
 
 onMounted(() => {
@@ -543,7 +585,11 @@ onMounted(() => {
   rotationInterval = setInterval(rotateExample, 4000) // Rotate every 4 seconds
   document.addEventListener('click', handleClickOutside);
   window.addEventListener('resize', handleResize);
+  window.addEventListener('resize', checkMobileState);
   window.addEventListener('scroll', handleScroll);
+  
+  // Initialize mobile state
+  checkMobileState();
 
   // Initialize session persistence service
   sessionPersistenceService.initialize()
@@ -575,6 +621,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('click', handleClickOutside);
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('resize', checkMobileState);
   window.removeEventListener('scroll', handleScroll);
 })
 
@@ -975,6 +1022,10 @@ const getReportContent = () => {
                 @keypress="handleKeyPress"
                 @paste="handlePaste"
               />
+              <div class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
+                <span class="material-symbols-outlined ai-icon">jamboard_kiosk</span>
+                <span class="ai-text">AI PPT</span>
+              </div>
               <div class="input-controls">
                 <!-- Show upload button for fact-check mode -->
                 <template v-if="selectedMode === 'fact_check'">
@@ -1193,6 +1244,60 @@ const getReportContent = () => {
       @close="closeRecoveryDialog"
     />
 
+    <!-- Mobile AI Tools Button -->
+    <Transition name="ai-tools">
+      <div v-if="showAIToolsMenu" class="ai-tools-container">
+        <!-- AI Tools Popup -->
+        <Transition name="ai-tools-popup">
+          <div v-if="isAIToolsPopupOpen" class="ai-tools-popup">
+            <button 
+              class="ai-tool-button ai-quick-ask-button"
+              @click="openAIQuickAsk"
+              aria-label="Open AI Quick Ask"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>AI Quick Ask</span>
+            </button>
+            <button 
+              class="ai-tool-button ai-ppt-button disabled"
+              @click="openAIPPT"
+              aria-label="AI PPT Generator (Coming Soon)"
+              disabled
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                <line x1="16" x2="16" y1="2" y2="6"/>
+                <line x1="8" x2="8" y1="2" y2="6"/>
+                <line x1="3" x2="21" y1="10" y2="10"/>
+              </svg>
+              <span>AI PPT <small>(Soon)</small></span>
+            </button>
+          </div>
+        </Transition>
+        
+        <!-- Main AI Tools Button -->
+        <button
+          class="ai-tools-button"
+          @click="toggleAIToolsPopup"
+          :class="{ 'active': isAIToolsPopupOpen }"
+          aria-label="AI Tools Menu"
+        >
+          <svg v-if="!isAIToolsPopupOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M20 12h.01"/>
+            <path d="M4 12h.01"/>
+            <path d="M12 20v.01"/>
+            <path d="M12 4v.01"/>
+          </svg>
+          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </Transition>
+
     <!-- Back to Top Button -->
     <Transition name="back-to-top">
       <button
@@ -1225,6 +1330,7 @@ const getReportContent = () => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=jamboard_kiosk');
 
 @font-face {
   font-family: 'LXGW Neo ZhiSong Plus';
@@ -1625,6 +1731,40 @@ const getReportContent = () => {
   padding: 16px 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ai-ppt-indicator {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ff8c00;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.ai-ppt-indicator.fact-check-mode {
+  color: #999999;
+}
+
+.ai-ppt-indicator.fact-check-mode .ai-icon {
+  opacity: 0.6;
+}
+
+.ai-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ai-text {
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .input-controls {
@@ -2288,6 +2428,161 @@ const getReportContent = () => {
   transform: translateY(20px) scale(0.8);
 }
 
+/* AI Tools Button Styles */
+.ai-tools-container {
+  position: fixed;
+  bottom: 100px;
+  right: 32px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.ai-tools-button {
+  width: 56px;
+  height: 56px;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0;
+}
+
+.ai-tools-button:hover {
+  background: #333333;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.ai-tools-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ai-tools-button.active {
+  background: #1890ff;
+  transform: rotate(45deg);
+}
+
+.ai-tools-button.active:hover {
+  background: #40a9ff;
+}
+
+.ai-tools-button svg {
+  transition: transform 0.2s ease;
+}
+
+.ai-tools-button:hover svg {
+  transform: translateY(-1px);
+}
+
+.ai-tools-button.active svg {
+  transform: none;
+}
+
+/* AI Tools Popup */
+.ai-tools-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ai-tool-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 28px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000000;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+}
+
+.ai-tool-button:hover:not(.disabled) {
+  background: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ai-tool-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #999999;
+}
+
+.ai-tool-button svg {
+  flex-shrink: 0;
+  color: #666666;
+  pointer-events: none;
+}
+
+.ai-tool-button.ai-quick-ask-button svg {
+  color: #1890ff;
+}
+
+.ai-tool-button.ai-ppt-button svg {
+  color: #ff6b35;
+}
+
+.ai-tool-button span {
+  pointer-events: none;
+}
+
+.ai-tool-button span small {
+  font-size: 11px;
+  color: #999999;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+/* AI Tools Transitions */
+.ai-tools-enter-active,
+.ai-tools-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-tools-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+}
+
+.ai-tools-leave-to {
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+}
+
+.ai-tools-popup-enter-active,
+.ai-tools-popup-leave-active {
+  transition: all 0.2s ease;
+}
+
+.ai-tools-popup-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+}
+
+.ai-tools-popup-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+}
+
 @media (max-width: 768px) {
   .back-to-top-button {
     bottom: 24px;
@@ -2299,6 +2594,32 @@ const getReportContent = () => {
   .back-to-top-button svg {
     width: 18px;
     height: 18px;
+  }
+
+  .ai-tools-container {
+    bottom: 84px;
+    right: 24px;
+  }
+
+  .ai-tools-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ai-tools-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ai-tool-button {
+    min-width: 140px;
+    font-size: 13px;
+    padding: 10px 14px;
+  }
+
+  .ai-tool-button svg {
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

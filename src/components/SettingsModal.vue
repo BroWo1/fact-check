@@ -69,6 +69,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
+import { usePPTGenerations } from '../composables/usePPTGenerations'
 import LanguageSelector from './LanguageSelector.vue'
 
 const props = defineProps({
@@ -82,6 +83,7 @@ const emit = defineEmits(['close'])
 
 const maxMode = ref(false)
 const { savedAnalyses } = useSavedAnalyses()
+const { getWeeklyPPTGenerations } = usePPTGenerations()
 
 // Load max mode setting from localStorage on mount
 onMounted(() => {
@@ -126,12 +128,18 @@ const weeklyStats = computed(() => {
     }
   })
   
+  // Get weekly PPT generations count
+  const weeklyPPTCount = getWeeklyPPTGenerations.value
+  
+  // Advanced requests = analyses + PPT generations
+  const advancedRequests = weeklyAnalyses.length + weeklyPPTCount
+  
   // For now, we'll estimate interactions as 2x analyses (section edits + AI asks)
   // In the future, this could be tracked more precisely
   const estimatedInteractions = weeklyAnalyses.length * 2
   
   return {
-    analyses: weeklyAnalyses.length,
+    analyses: advancedRequests,
     interactions: estimatedInteractions
   }
 })

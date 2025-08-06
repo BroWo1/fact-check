@@ -152,7 +152,11 @@
     "language": "Language",
     "languageDescription": "Choose your preferred language",
     "maxMode": "Max Mode",
-    "maxModeDescription": "Enhanced analysis quality"
+    "maxModeDescription": "Enhanced analysis quality",
+    "model": "AI Model",
+    "modelDescription": "Choose the AI model for analysis",
+    "regenerationPageCount": "Regeneration Page Count",
+    "regenerationPageCountDescription": "Number of slides to regenerate in quick requests"
   },
   "aiQuickAsk": {
     "title": "Quick Ask AI",
@@ -164,5 +168,10 @@
   },
   "aiPPT":{
     "title": "AI PPT"
+  },
+  "pptGenerator": {
+    "editPlaceholder": "Describe how you want to change this slide...",
+    "regenerate": "Regenerate",
+    "regenerating": "Regenerating..."
   }
 }

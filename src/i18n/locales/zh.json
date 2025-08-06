@@ -151,8 +151,12 @@
     "preferences": "偏好设置",
     "language": "语言",
     "languageDescription": "选择您的首选语言",
-    "maxMode": "极致模式",
-    "maxModeDescription": "增强分析质量"
+    "maxMode": "Max模式",
+    "maxModeDescription": "增强分析质量",
+    "model": "AI 模型",
+    "modelDescription": "选择用于分析的AI模型",
+    "regenerationPageCount": "重新生成页面数",
+    "regenerationPageCountDescription": "快速请求中重新生成的幻灯片数量"
   },
   "aiQuickAsk": {
     "title": "快速询问AI",
@@ -164,5 +168,10 @@
   },
   "aiPPT": {
     "title": "AI PPT"
+  },
+  "pptGenerator": {
+    "editPlaceholder": "描述您希望如何更改此幻灯片...",
+    "regenerate": "重新生成",
+    "regenerating": "重新生成中..."
   }
 }

@@ -46,6 +46,16 @@
             
             <div class="setting-item">
               <div class="setting-info">
+                <label class="setting-label">{{$t('settings.model')}}</label>
+                <div class="setting-description">{{$t('settings.modelDescription')}}</div>
+              </div>
+              <div class="setting-control">
+                <ModelSelector />
+              </div>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
                 <label class="setting-label">{{$t('settings.maxMode')}}</label>
                 <div class="setting-description">{{$t('settings.maxModeDescription')}}</div>
               </div>
@@ -71,6 +81,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
 import { usePPTGenerations } from '../composables/usePPTGenerations'
 import LanguageSelector from './LanguageSelector.vue'
+import ModelSelector from './ModelSelector.vue'
 
 const props = defineProps({
   visible: {

@@ -552,6 +552,70 @@ class FactCheckService {
     }
   }
 
+  async regenerateSingleSlide(sessionId, options = {}) {
+    console.log('Regenerate single slide request:', {
+      sessionId,
+      slideId: options.slide_info?.id,
+      slideTitle: options.slide_info?.title,
+      description: options.slide_info?.description,
+      reportContentLength: options.report_content?.length,
+      theme: options.theme
+    })
+    
+    const maxRetries = 2;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Slide regeneration attempt ${attempt}/${maxRetries}`);
+        
+        // Use generate-single-slide endpoint directly (more reliable than async regenerate)
+        const requestPayload = {
+          slide_info: options.slide_info,
+          report_content: options.report_content,
+          theme: options.theme || 'professional',
+          edit_mode: true,
+          current_slide_content: options.current_slide_content
+        };
+        
+        if (attempt === 1) {
+          console.log('Sending request payload:', {
+            ...requestPayload,
+            report_content: requestPayload.report_content?.substring(0, 100) + '... (truncated)'
+          });
+        }
+
+        const response = await this.axiosInstance.post(`/fact-check/${sessionId}/generate-single-slide/`, requestPayload, {
+          timeout: 180000 // 3 minutes timeout for slide regeneration
+        })
+        
+        console.log('Generate single slide response:', response.status, response.data)
+        
+        if (!response.data.success) {
+          throw new Error(response.data.error?.message || 'Slide regeneration failed')
+        }
+        
+        return response.data
+      } catch (error) {
+        console.error(`Slide regeneration attempt ${attempt} failed:`, error.message)
+        lastError = error;
+        
+        // If it's a 500 error and we have more attempts, wait and retry
+        if (error.response?.status === 500 && attempt < maxRetries) {
+          console.log(`Retrying in 2 seconds due to server error...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        // For other errors or last attempt, break and throw
+        break;
+      }
+    }
+    
+    console.error('All slide regeneration attempts failed')
+    throw this.handleError(lastError)
+  }
+
   handleError(error) {
     if (error.response) {
       // Server responded with error status

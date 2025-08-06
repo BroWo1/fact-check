@@ -2478,6 +2478,7 @@ const getReportContent = () => {
 
 .ai-tools-button svg {
   transition: transform 0.2s ease;
+  pointer-events: none;
 }
 
 .ai-tools-button:hover svg {

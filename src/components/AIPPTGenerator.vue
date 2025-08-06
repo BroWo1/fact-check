@@ -1,11 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Button, message, Modal } from 'ant-design-vue';
+import { Button, message, Modal, Input } from 'ant-design-vue';
 import factCheckService from '../services/factCheckService';
 import { usePPTGenerations } from '../composables/usePPTGenerations';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-markup.min.js';
+import 'prismjs/themes/prism-tomorrow.css';
 
 const { t } = useI18n();
 const { recordPPTGeneration } = usePPTGenerations();
@@ -56,6 +59,8 @@ const textEditorInput = ref(null);
 const visualEditContainer = ref(null);
 const editModeIframe = ref(null);
 const isGeneratingPDF = ref(false);
+const slideChangeDescription = ref('');
+const isRegenerating = ref(false);
 
 // PPT generation progress tracking
 const generationProgress = ref({
@@ -71,6 +76,56 @@ const isMobile = ref(false);
 const isMobileOverlayOpen = ref(false);
 
 const isSessionReady = computed(() => !!props.sessionId);
+
+// Computed property for syntax-highlighted HTML
+const highlightedHTML = computed(() => {
+  if (!currentSlideHTML.value) return '';
+  
+  // Format HTML with proper indentation
+  const formattedHTML = formatHTML(currentSlideHTML.value);
+  
+  // Apply syntax highlighting
+  const highlighted = Prism.highlight(formattedHTML, Prism.languages.markup, 'markup');
+  
+  // Add line numbers
+  return addLineNumbers(highlighted);
+});
+
+// Function to format HTML with proper indentation
+const formatHTML = (html) => {
+  let formatted = '';
+  let indent = 0;
+  const tab = '  '; // 2 spaces for indentation
+  
+  html.split(/(<[^>]*>)/).forEach((part) => {
+    if (part.match(/^<\/\w/)) {
+      // Closing tag
+      indent--;
+      formatted += tab.repeat(Math.max(0, indent)) + part + '\n';
+    } else if (part.match(/^<\w[^>]*[^\/]>$/)) {
+      // Opening tag
+      formatted += tab.repeat(indent) + part + '\n';
+      indent++;
+    } else if (part.match(/^<\w[^>]*\/>$/)) {
+      // Self-closing tag
+      formatted += tab.repeat(indent) + part + '\n';
+    } else if (part.trim()) {
+      // Text content
+      formatted += tab.repeat(indent) + part.trim() + '\n';
+    }
+  });
+  
+  return formatted.trim();
+};
+
+// Function to add line numbers to highlighted code
+const addLineNumbers = (highlightedCode) => {
+  const lines = highlightedCode.split('\n');
+  return lines.map((line, index) => {
+    const lineNumber = String(index + 1).padStart(3, ' ');
+    return `<span class="line-number">${lineNumber}</span><span class="line-content">${line}</span>`;
+  }).join('\n');
+};
 
 // Dynamic thumbnail sidebar width based on modal size and slide count
 const thumbnailSidebarWidth = computed(() => {
@@ -152,9 +207,10 @@ const handleScroll = () => {
   const container = scrollContainer.value;
   const containerTop = container.scrollTop;
   const containerHeight = container.clientHeight;
-  const centerPoint = containerTop + containerHeight / 2;
+  // Shift detection point higher - use 40% from top instead of 50% (center)
+  const detectionPoint = containerTop + containerHeight * 0.6;
   
-  // Find which slide is currently in the center of the viewport
+  // Find which slide is currently in the detection zone (shifted higher)
   let newIndex = 0;
   slideElements.value.forEach((slideElement, index) => {
     if (!slideElement) return;
@@ -162,7 +218,7 @@ const handleScroll = () => {
     const slideHeight = slideElement.offsetHeight;
     const slideCenter = slideTop + slideHeight / 2;
     
-    if (slideCenter <= centerPoint) {
+    if (slideCenter <= detectionPoint) {
       newIndex = index;
     }
   });
@@ -1043,6 +1099,72 @@ const downloadPDF = async () => {
     isGeneratingPDF.value = false;
   }
 };
+
+const handleRegenerateKeyPress = (event) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    regenerateSlide();
+  }
+};
+
+const regenerateSlide = async () => {
+  if (!props.sessionId || !slideChangeDescription.value.trim()) {
+    return;
+  }
+
+  if (!savedPPT.value || !savedPPT.value.slides[currentSlideIndex.value]) {
+    message.error('No slide to regenerate');
+    return;
+  }
+
+  isRegenerating.value = true;
+
+  try {
+    const currentSlide = savedPPT.value.slides[currentSlideIndex.value];
+    
+    // Prepare slide info for regeneration with user changes
+    const slideInfo = {
+      id: currentSlide.id,
+      title: currentSlide.title,
+      description: slideChangeDescription.value.trim()
+    };
+    
+    console.log('Current slide:', currentSlide);
+    console.log('Prepared slideInfo:', slideInfo);
+    console.log('Report content length:', props.reportContent?.length);
+
+    const result = await factCheckService.regenerateSingleSlide(props.sessionId, {
+      slide_info: slideInfo,
+      report_content: props.reportContent,
+      theme: savedPPT.value.theme || 'professional',
+      current_slide_content: currentSlide.content
+    });
+
+    console.log('Regenerate result:', result);
+
+    if (result && result.success && result.data) {
+      // Update the slide in the saved PPT
+      savedPPT.value.slides[currentSlideIndex.value] = result.data;
+      editableSlideContent.value = result.data.content;
+      
+      // Update localStorage
+      savePPT(savedPPT.value);
+      
+      // Clear the description
+      slideChangeDescription.value = '';
+      
+      message.success('Slide regenerated successfully!');
+    } else {
+      console.error('Invalid result structure:', result);
+      throw new Error(result?.error?.message || 'Failed to regenerate slide - invalid response');
+    }
+  } catch (error) {
+    console.error('Slide regeneration failed:', error);
+    message.error(error.message || 'Failed to regenerate slide');
+  } finally {
+    isRegenerating.value = false;
+  }
+};
 </script>
 
 <template>
@@ -1392,9 +1514,6 @@ const downloadPDF = async () => {
                 </button>
               </div>
             </div>
-            <div class="edit-instructions-bar">
-              <span class="edit-instruction">🔍 Hover over text elements to highlight them, then click to edit</span>
-            </div>
             <div class="visual-edit-content" ref="visualEditContainer">
               <iframe
                 v-if="savedPPT.slides[currentSlideIndex]"
@@ -1405,6 +1524,30 @@ const downloadPDF = async () => {
                 scrolling="no"
                 @load="setupEditMode"
               ></iframe>
+            </div>
+            <div class="slide-regeneration-input">
+              <div class="regeneration-input-container">
+                <Input.TextArea
+                  v-model:value="slideChangeDescription"
+                  :placeholder="t('pptGenerator.editPlaceholder')"
+                  :rows="2"
+                  class="regeneration-textarea"
+                  @keypress="handleRegenerateKeyPress"
+                  :disabled="isRegenerating"
+                />
+                <Button
+                  type="primary"
+                  :loading="isRegenerating"
+                  :disabled="!slideChangeDescription.trim()"
+                  @click="regenerateSlide"
+                  class="regenerate-ask-button"
+                  size="small"
+                >
+                  <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor" v-if="!isRegenerating">
+                    <path d="M12 2L2 7l4 1 1 4 5-10z" fill="currentColor"/>
+                  </svg>
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -1417,7 +1560,7 @@ const downloadPDF = async () => {
               </button>
             </div>
             <div class="html-code-wrapper">
-              <pre class="html-code-display"><code>{{ currentSlideHTML }}</code></pre>
+              <pre class="html-code-display"><code v-html="highlightedHTML"></code></pre>
             </div>
           </div>
         </div>
@@ -2153,18 +2296,71 @@ const downloadPDF = async () => {
 .html-code-display {
   width: 100%;
   height: 100%;
-  background: #f8f9fa;
-  padding: 16px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: #333333;
+  background: #2d3748;
+  padding: 0;
   margin: 0;
   border: none;
+  outline: none;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: auto;
+  color: #e2e8f0;
   max-height: calc(85vh - 200px);
+}
+
+.html-code-display code {
+  display: block;
+  padding: 20px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.line-number {
+  display: inline-block;
+  width: 45px;
+  padding-right: 15px;
+  text-align: right;
+  color: #718096;
+  background: #1a202c;
+  border-right: 1px solid #4a5568;
+  margin-right: 15px;
+  user-select: none;
+  font-weight: normal;
+}
+
+.line-content {
+  display: inline;
+}
+
+/* Override Prism theme colors for better visibility */
+.html-code-display .token.tag {
+  color: #f56565;
+}
+
+.html-code-display .token.attr-name {
+  color: #ed8936;
+}
+
+.html-code-display .token.attr-value {
+  color: #68d391;
+}
+
+.html-code-display .token.punctuation {
+  color: #cbd5e0;
+}
+
+.html-code-display .token.string {
+  color: #68d391;
+}
+
+.html-code-display .token.comment {
+  color: #718096;
+  font-style: italic;
 }
 
 .edit-container {
@@ -2349,16 +2545,104 @@ const downloadPDF = async () => {
   /* Dimensions and positioning handled by JavaScript */
 }
 
+.slide-regeneration-input {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.regeneration-input-container {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.regeneration-textarea {
+  flex: 1;
+  border-radius: 8px !important;
+  border: 1px solid #d9d9d9 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  line-height: 1.5;
+  resize: none !important;
+  margin-bottom: 0;
+  transition: all 0.2s ease !important;
+  height: 60px;
+  background: #ffffff !important;
+  padding: 8px 12px !important;
+}
+
+.regeneration-textarea:hover:not(:disabled) {
+  border-color: #000000 !important;
+}
+
+.regeneration-textarea:focus {
+  border-color: #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1) !important;
+  outline: none !important;
+}
+
+.regenerate-ask-button {
+  border-radius: 8px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 14px;
+  font-weight: 600;
+  background: #000000;
+  border-color: #000000;
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+  padding: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 60px;
+}
+
+.regenerate-ask-button:hover:not(:disabled) {
+  background: #333333;
+  border-color: #333333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.regenerate-ask-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #666666;
+  border-color: #666666;
+}
+
+.regenerate-ask-button:disabled svg {
+  opacity: 1;
+  fill: #ffffff;
+}
+
+.regenerate-ask-button .ant-btn-loading-icon {
+  font-size: 18px;
+}
+
+.regenerate-ask-button .ant-spin-dot {
+  width: 20px;
+  height: 20px;
+}
+
 /* Floating Text Editor */
 .floating-text-editor {
   position: fixed !important;
   background: #ffffff;
-  border: 2px solid #000000;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); /* Stronger shadow */
-  z-index: 999999 !important; /* Extremely high z-index */
-  min-width: 300px;
-  max-width: 400px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 999999 !important;
+  min-width: 320px;
+  max-width: 420px;
+  overflow: hidden;
 }
 
 /* Ensure modal doesn't clip the editor */
@@ -2376,11 +2660,13 @@ const downloadPDF = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #000000;
-  color: #ffffff;
-  padding: 8px 12px;
-  font-size: 12px;
+  background: #fafafa;
+  color: #333333;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: 600;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .editor-title {
@@ -2389,55 +2675,67 @@ const downloadPDF = async () => {
 
 .editor-buttons {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 .editor-save-btn, .editor-cancel-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  color: #666666;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  font-weight: 600;
 }
 
 .editor-save-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: #000000;
   border-color: #000000;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .editor-cancel-btn:hover {
-  background: rgba(0, 0, 0, 0.8);
-  border-color: #000000;
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .text-editor-input {
   width: 100%;
   border: none;
-  padding: 12px;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  line-height: 1.4;
-  resize: vertical;
-  min-height: 60px;
-  max-height: 150px;
+  padding: 16px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  line-height: 1.5;
+  resize: none;
+  min-height: 80px;
+  max-height: 180px;
   outline: none;
+  background: #ffffff;
+  border-radius: 0;
+}
+
+.text-editor-input:focus {
+  background: #fafafa;
 }
 
 .editor-shortcuts {
   background: #f8f9fa;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-top: 1px solid #e9ecef;
-  font-size: 10px;
-  color: #666666;
+  font-size: 11px;
+  color: #999999;
   text-align: center;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-style: italic;
 }
 
 .close-modal-button {

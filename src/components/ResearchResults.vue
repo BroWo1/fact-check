@@ -7,8 +7,8 @@
         <span class="research-date">{{ formatDate(results.created_at) }}</span>
       </div>
       <div class="research-actions">
-        <button class="action-button" @click="copyToClipboard" :disabled="copying">
-          {{ copying ? '📋 Copying...' : '📋 ' + t('research.copy') }}
+        <button class="action-button" @click="openPPTGenerator" :disabled="!effectiveSessionId">
+          📄 Generate PPT
         </button>
         <button class="action-button" @click="downloadReport">
           📄 {{ t('research.download') }}
@@ -113,6 +113,7 @@ import SectionEditModal from './SectionEditModal.vue'
 import SectionEditInline from './SectionEditInline.vue'
 import factCheckService from '../services/factCheckService'
 import pdfService from '../services/pdfService'
+import { SquarePen } from 'lucide-vue-next'
 
 const { t } = useI18n()
 
@@ -150,9 +151,8 @@ const effectiveSessionId = computed(() => {
   return effective
 })
 
-const emit = defineEmits(['headings-extracted', 'section-updated'])
+const emit = defineEmits(['headings-extracted', 'section-updated', 'open-ppt-generator'])
 
-const copying = ref(false)
 const isSourcesCollapsed = ref(true) // Start collapsed by default
 const showEditModal = ref(false)
 const showInlineEdit = ref(false)
@@ -270,7 +270,23 @@ const setupEditHandlers = () => {
         let editIcon = heading.querySelector('.edit-icon')
         if (!editIcon) {
           editIcon = document.createElement('span')
-          editIcon.innerHTML = ' ✏️ Edit'
+          editIcon.innerHTML = ''
+          const penIcon = document.createElement('span')
+          penIcon.innerHTML = ''
+          const penSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+          penSvg.setAttribute('width', '14')
+          penSvg.setAttribute('height', '14')
+          penSvg.setAttribute('viewBox', '0 0 24 24')
+          penSvg.setAttribute('fill', 'none')
+          penSvg.setAttribute('stroke', 'currentColor')
+          penSvg.setAttribute('stroke-width', '2')
+          penSvg.setAttribute('stroke-linecap', 'round')
+          penSvg.setAttribute('stroke-linejoin', 'round')
+          penSvg.innerHTML = '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>'
+          const textSpan = document.createElement('span')
+          textSpan.textContent = ' Edit'
+          editIcon.appendChild(penSvg)
+          editIcon.appendChild(textSpan)
           editIcon.className = 'edit-icon'
           heading.appendChild(editIcon)
         }
@@ -288,7 +304,7 @@ const setupEditHandlers = () => {
         // Click handler on the entire heading
         heading.addEventListener('click', (event) => {
           event.preventDefault()
-          const text = heading.textContent.replace('✏️ Edit', '').trim()
+          const text = heading.textContent.replace(' Edit', '').trim()
           const id = heading.id
 
           // Check if modal is already open for this section
@@ -377,7 +393,7 @@ const extractAndEmitHeadings = (htmlContent) => {
   h2AndH3Elements.forEach((heading) => {
     const level = parseInt(heading.tagName.charAt(1))
     // Remove edit icon from text for table of contents
-    const text = heading.textContent.replace('✏️ Edit', '').trim()
+    const text = heading.textContent.replace(' Edit', '').trim()
     const id = heading.id
 
     if (text && id) {
@@ -469,48 +485,18 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString()
 }
 
-const copyToClipboard = async () => {
-  copying.value = true
-  try {
-    // Create a plain text version of the research report using deduplicated content
-    const plainTextReport = `
-Research Report: ${props.originalClaim}
-Generated: ${formatDate(props.results.created_at)}
-
-${deduplicatedTextContent.value || 'No summary available'}
-
-${deduplicatedSources.value && deduplicatedSources.value.length > 0 ? `
-Sources:
-${deduplicatedSources.value.map((source, index) => `${index + 1}. ${source.title || source.url} (${source.url})`).join('\n')}
-` : ''}
-
-${props.results.limitations && props.results.limitations.length > 0 ? `
-Limitations:
-${props.results.limitations.map(limitation => `• ${limitation}`).join('\n')}
-` : ''}
-
-${props.results.recommendations && props.results.recommendations.length > 0 ? `
-Recommendations:
-${props.results.recommendations.map(rec => `• ${rec}`).join('\n')}
-` : ''}
-`.trim()
-
-    await navigator.clipboard.writeText(plainTextReport)
-    notification.success({
-      message: 'Report Copied',
-      description: 'The research report has been copied to your clipboard.',
-      duration: 3
+const openPPTGenerator = () => {
+  if (!effectiveSessionId.value) {
+    notification.warning({
+      message: 'Session Required',
+      description: 'A session ID is required to access the PPT generator. Please ensure your analysis is complete.',
+      duration: 4
     })
-  } catch (error) {
-    console.error('Failed to copy:', error)
-    notification.error({
-      message: 'Copy Failed',
-      description: 'Failed to copy the report to clipboard. Your browser may not support this feature.',
-      duration: 3
-    })
-  } finally {
-    copying.value = false
+    return
   }
+  
+  // Emit event to parent component to open/expand the PPT generator side section
+  emit('open-ppt-generator')
 }
 
 const downloadReport = () => {

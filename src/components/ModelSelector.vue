@@ -14,7 +14,7 @@
             src="https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/openai.png"
             alt="OpenAI"
           />
-          OpenAI
+          GPT-5
         </div>
       </Select.Option>
     </Select>

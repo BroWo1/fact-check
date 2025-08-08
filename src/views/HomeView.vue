@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
+import { Presentation, Settings, Files } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { Input, Button, Typography, Space, Layout, Upload, notification, Modal, Select, Tooltip } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -57,6 +58,16 @@ const handleSectionUpdated = (updatedResults) => {
   
   console.log('Results updated, new length:', results.value?.summary?.length || 0)
 }
+
+const handleOpenPPTGenerator = () => {
+  // Trigger the PPT generator to open by expanding it
+  if (aiContainerRef.value) {
+    // The PPT generator is part of AIContainer, we can dispatch a custom event
+    // or add a method to AIContainer to expand the PPT generator
+    window.dispatchEvent(new CustomEvent('open-ppt-generator'))
+  }
+}
+
 
 // Handle text selection for AI citation
 const handleTextSelection = (selectedText) => {
@@ -199,6 +210,55 @@ const isMobileMenuOpen = ref(false)
 const headerActionsRef = ref(null)
 const selectedMode = ref('fact_check')
 const showSettingsModal = ref(false)
+
+// Feature intro modal state
+const showFeatureIntroModal = ref(false)
+const FEATURE_INTRO_FOREVER_KEY = 'feature-intro-dismissed-forever'
+const FEATURE_INTRO_UNTIL_KEY = 'feature-intro-dismissed-until'
+
+const shouldShowFeatureIntro = () => {
+  try {
+    const forever = localStorage.getItem(FEATURE_INTRO_FOREVER_KEY)
+    if (forever === 'true') return false
+    const until = localStorage.getItem(FEATURE_INTRO_UNTIL_KEY)
+    if (until) {
+      const untilTs = parseInt(until, 10)
+      if (!isNaN(untilTs) && Date.now() < untilTs) {
+        return false
+      }
+    }
+  } catch (e) {
+    console.warn('Feature intro localStorage read failed:', e)
+  }
+  return true
+}
+
+const dismissFeatureIntroForOneDay = () => {
+  try {
+    const oneDayMs = 24 * 60 * 60 * 1000
+    localStorage.setItem(FEATURE_INTRO_UNTIL_KEY, (Date.now() + oneDayMs).toString())
+  } catch (e) {
+    console.warn('Feature intro localStorage write failed:', e)
+  }
+  showFeatureIntroModal.value = false
+}
+
+const dismissFeatureIntroForever = () => {
+  try {
+    localStorage.setItem(FEATURE_INTRO_FOREVER_KEY, 'true')
+    localStorage.removeItem(FEATURE_INTRO_UNTIL_KEY)
+  } catch (e) {
+    console.warn('Feature intro localStorage write failed:', e)
+  }
+  showFeatureIntroModal.value = false
+}
+
+// Open feature intro from Settings modal
+const handleShowFeatureIntro = () => {
+  showSettingsModal.value = false
+  const delay = (globalThis && globalThis.setTimeout) ? globalThis.setTimeout : setTimeout
+  delay(() => { showFeatureIntroModal.value = true }, 150)
+}
 
 // Max mode setting (reads from localStorage like in SettingsModal)
 const maxMode = ref(false)
@@ -610,6 +670,16 @@ onMounted(() => {
       restoreScrollPosition()
     }, 100) // Small delay to ensure content is fully loaded
   })
+
+  // Show feature intro modal if not dismissed
+  try {
+    if (shouldShowFeatureIntro()) {
+      // Slight delay so it doesn't clash with other UI on mount
+      setTimeout(() => { showFeatureIntroModal.value = true }, 250)
+    }
+  } catch (e) {
+    // no-op
+  }
 })
 
 onUnmounted(() => {
@@ -963,7 +1033,7 @@ const getReportContent = () => {
                  @click="showSettingsModal = true"
                  size="small"
                >
-                 <span class="settings-icon">⚙️</span>
+                 <Settings class="settings-icon" :size="14" />
                  <span class="settings-label">{{$t('settings.title')}}</span>
                </Button>
             </div>
@@ -1023,7 +1093,7 @@ const getReportContent = () => {
                 @paste="handlePaste"
               />
               <div class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
-                <span class="material-symbols-outlined ai-icon">jamboard_kiosk</span>
+                <Presentation class="ai-icon" :size="16" />
                 <span class="ai-text">AI PPT</span>
               </div>
               <div class="input-controls">
@@ -1161,6 +1231,7 @@ const getReportContent = () => {
             :analysisSummary="currentAnalysisSummary"
             @headings-extracted="handleHeadingsExtracted"
             @section-updated="handleSectionUpdated"
+            @open-ppt-generator="handleOpenPPTGenerator"
             :key="`research-${sessionId}`"
           />
           <div class="new-analysis-section">
@@ -1266,12 +1337,7 @@ const getReportContent = () => {
               aria-label="AI PPT Generator (Coming Soon)"
               disabled
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-                <line x1="16" x2="16" y1="2" y2="6"/>
-                <line x1="8" x2="8" y1="2" y2="6"/>
-                <line x1="3" x2="21" y1="10" y2="10"/>
-              </svg>
+              <Presentation :size="18" />
               <span>AI PPT <small>(Soon)</small></span>
             </button>
           </div>
@@ -1323,14 +1389,77 @@ const getReportContent = () => {
     <SettingsModal
       :visible="showSettingsModal"
       @close="showSettingsModal = false"
+      @show-feature-intro="handleShowFeatureIntro"
     />
+
+    <!-- Feature Intro Modal: GPT-5 + AI PPT -->
+    <a-modal
+      v-model:open="showFeatureIntroModal"
+      :title="null"
+      width="640px"
+      :footer="null"
+      :mask-closable="true"
+      :destroy-on-close="true"
+      :closable="false"
+      @cancel="dismissFeatureIntroForOneDay"
+    >
+      <div class="feature-intro">
+        <div class="feature-hero">
+          <div class="hero-badge">Update</div>
+          <h2 class="hero-title">GPT‑5 + AI PPT</h2>
+          <p class="hero-subtitle">Smarter research. Beautiful slides. Faster results.</p>
+          <img
+            class="hero-logo"
+            src="/logoLight.png"
+            alt="Logo"
+          />
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="card-icon card-icon-gradient">
+              <img
+                class="openai-logo"
+                height="18"
+                src="https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/dark/openai.png"
+                alt="OpenAI"
+              />
+            </div>
+            <div class="card-content">
+              <h4 class="card-title">GPT‑5 Integration</h4>
+              <ul class="card-points">
+                <li>Deeper reasoning and higher factual accuracy</li>
+                <li>Faster, more reliable responses in both modes</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="card-icon card-icon-accent">
+              <Presentation :size="18" />
+            </div>
+            <div class="card-content">
+              <h4 class="card-title">AI PPT Generation <span class="pill">BETA</span></h4>
+              <ul class="card-points">
+                <li>Turn research into polished, downloadable slides</li>
+                <li>Visual edits, quick regeneration, export to PDF</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-actions">
+          <button class="feature-btn ghost" @click="dismissFeatureIntroForOneDay">Close for one day</button>
+          <button class="feature-btn solid" @click="dismissFeatureIntroForever">Don't show again</button>
+        </div>
+      </div>
+    </a-modal>
   </Layout>
 </template>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=jamboard_kiosk');
 
 @font-face {
   font-family: 'LXGW Neo ZhiSong Plus';
@@ -2133,6 +2262,198 @@ const getReportContent = () => {
   text-align: right;
 }
 
+
+/* Feature Intro Modal Styles */
+.feature-intro {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.feature-hero {
+  position: relative;
+  background: radial-gradient(1200px 240px at 20% -20%, #e6f0ff 0%, transparent 60%),
+              linear-gradient(135deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%);
+  border-radius: 12px;
+  padding: 28px 24px;
+  color: white;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(13, 110, 253, 0.15);
+}
+
+.hero-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.hero-title {
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  margin: 0 0 6px 0;
+}
+
+.hero-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.hero-logo {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 150px;
+  width: auto;
+  opacity: 0.95;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.15));
+}
+
+@media (max-width: 640px) {
+  .hero-logo {
+    height: 72px;
+    right: 12px;
+  }
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.feature-card {
+  display: flex;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: #dfe6ee;
+}
+
+.card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.card-icon-gradient {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: white;
+}
+
+.card-icon-accent {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+}
+
+.icon-emoji {
+  font-size: 18px;
+}
+
+.openai-logo {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-title {
+  margin: 0 0 6px 0;
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.pill {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  background: #111827;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.card-points {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.feature-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.feature-btn {
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.feature-btn.ghost {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e5e7eb;
+}
+
+.feature-btn.ghost:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.feature-btn.solid {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+}
+
+.feature-btn.solid:hover {
+  background: #1f2937;
+  border-color: #1f2937;
+}
+
+@media (max-width: 640px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 
 @media (max-width: 1200px) {

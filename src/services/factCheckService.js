@@ -5,7 +5,7 @@ class FactCheckService {
   constructor() {
     this.axiosInstance = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 60000, // Increased timeout for analysis requests
+      timeout: 120000, // Extended timeout for PPT generation requests
       headers: {
         'Content-Type': 'application/json',
       },
@@ -505,11 +505,18 @@ class FactCheckService {
         slide_count: options.slideCount || 7,
         theme: options.theme || 'professional'
       }, {
-        timeout: 120000 // 2 minutes timeout for outline generation
+        timeout: 30000 // 30 second timeout for initial request
       })
       
       console.log('Generate PPT outline response:', response.status, response.data)
       
+      // Handle asynchronous processing (202 response)
+      if (response.status === 202 && response.data.status === 'processing') {
+        console.log('PPT outline generation is processing, starting polling...')
+        return await this.pollPPTOutlineResult(sessionId, 30) // 30 attempts = ~90 seconds
+      }
+      
+      // Handle synchronous response (200)
       if (!response.data.success) {
         throw new Error(response.data.error?.message || 'PPT outline generation failed')
       }
@@ -519,6 +526,63 @@ class FactCheckService {
       console.error('PPT outline generation error:', error)
       throw this.handleError(error)
     }
+  }
+
+  async pollPPTOutlineResult(sessionId, maxAttempts = 30) {
+    let attempts = 0
+    const pollInterval = 3000 // 3 seconds
+    const startTime = Date.now()
+    
+    console.log(`Starting PPT outline polling for session ${sessionId}`)
+    console.log(`Poll settings: maxAttempts=${maxAttempts}, interval=${pollInterval}ms`)
+    
+    while (attempts < maxAttempts) {
+      const currentTime = Date.now()
+      const elapsedTime = Math.round((currentTime - startTime) / 1000)
+      
+      try {
+        console.log(`[Outline Poll ${elapsedTime}s] Attempt ${attempts + 1}/${maxAttempts} - Checking status...`)
+        
+        const response = await this.axiosInstance.get(`/fact-check/${sessionId}/ppt-outline-status/`)
+        const data = response.data
+        
+        console.log(`[Outline Poll ${elapsedTime}s] Status: ${data.status}`)
+        
+        if (data.status === 'completed') {
+          console.log(`[Outline Poll ${elapsedTime}s] ✅ PPT outline generation completed!`)
+          return data.result
+        } else if (data.status === 'failed') {
+          console.error(`[Outline Poll ${elapsedTime}s] ❌ PPT outline generation failed:`, data.error)
+          throw new Error(`PPT outline generation failed: ${data.error || 'Unknown error'}`)
+        } else if (data.status === 'processing') {
+          // Continue polling
+          attempts++
+          if (attempts < maxAttempts) {
+            console.log(`[Outline Poll ${elapsedTime}s] Waiting ${pollInterval}ms before next poll...`)
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+          }
+        } else {
+          console.error(`[Outline Poll ${elapsedTime}s] ❓ Unknown outline status: ${data.status}`)
+          throw new Error(`Unknown outline status: ${data.status}`)
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          throw new Error('PPT outline generation session not found')
+        }
+        
+        console.warn(`[Outline Poll ${elapsedTime}s] ⚠️ Poll attempt ${attempts + 1} failed:`, error.message)
+        attempts++
+        
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval))
+        } else {
+          throw error
+        }
+      }
+    }
+    
+    console.error(`[Outline Poll] 🔥 Maximum polling attempts (${maxAttempts}) reached`)
+    throw new Error('PPT outline generation timeout - maximum polling attempts reached')
   }
 
   async generateSingleSlide(sessionId, options = {}) {
@@ -536,11 +600,18 @@ class FactCheckService {
         report_content: options.report_content,
         theme: options.theme || 'professional'
       }, {
-        timeout: 180000 // 3 minutes timeout for single slide generation
+        timeout: 30000 // 30 second timeout for initial request
       })
       
       console.log('Generate single slide response:', response.status, response.data)
       
+      // Handle asynchronous processing (202 response)
+      if (response.status === 202 && response.data.status === 'processing') {
+        console.log('Single slide generation is processing, starting polling...')
+        return await this.pollSingleSlideResult(sessionId, options.slide_info?.id, 40) // 40 attempts = ~2 minutes
+      }
+      
+      // Handle synchronous response (200)
       if (!response.data.success) {
         throw new Error(response.data.error?.message || 'Single slide generation failed')
       }
@@ -550,6 +621,63 @@ class FactCheckService {
       console.error('Single slide generation error:', error)
       throw this.handleError(error)
     }
+  }
+
+  async pollSingleSlideResult(sessionId, slideId, maxAttempts = 40) {
+    let attempts = 0
+    const pollInterval = 3000 // 3 seconds
+    const startTime = Date.now()
+    
+    console.log(`Starting single slide polling for session ${sessionId}, slideId ${slideId}`)
+    console.log(`Poll settings: maxAttempts=${maxAttempts}, interval=${pollInterval}ms`)
+    
+    while (attempts < maxAttempts) {
+      const currentTime = Date.now()
+      const elapsedTime = Math.round((currentTime - startTime) / 1000)
+      
+      try {
+        console.log(`[Slide Poll ${elapsedTime}s] Attempt ${attempts + 1}/${maxAttempts} - Checking status...`)
+        
+        const response = await this.axiosInstance.get(`/fact-check/${sessionId}/single-slide-status/${slideId}/`)
+        const data = response.data
+        
+        console.log(`[Slide Poll ${elapsedTime}s] Status: ${data.status}`)
+        
+        if (data.status === 'completed') {
+          console.log(`[Slide Poll ${elapsedTime}s] ✅ Slide ${slideId} generation completed!`)
+          return data.result
+        } else if (data.status === 'failed') {
+          console.error(`[Slide Poll ${elapsedTime}s] ❌ Slide ${slideId} generation failed:`, data.error)
+          throw new Error(`Slide ${slideId} generation failed: ${data.error || 'Unknown error'}`)
+        } else if (data.status === 'processing') {
+          // Continue polling
+          attempts++
+          if (attempts < maxAttempts) {
+            console.log(`[Slide Poll ${elapsedTime}s] Waiting ${pollInterval}ms before next poll...`)
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+          }
+        } else {
+          console.error(`[Slide Poll ${elapsedTime}s] ❓ Unknown slide status: ${data.status}`)
+          throw new Error(`Unknown slide status: ${data.status}`)
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          throw new Error('Slide generation session not found')
+        }
+        
+        console.warn(`[Slide Poll ${elapsedTime}s] ⚠️ Poll attempt ${attempts + 1} failed:`, error.message)
+        attempts++
+        
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval))
+        } else {
+          throw error
+        }
+      }
+    }
+    
+    console.error(`[Slide Poll] 🔥 Maximum polling attempts (${maxAttempts}) reached for slide ${slideId}`)
+    throw new Error('Slide generation timeout - maximum polling attempts reached')
   }
 
   async regenerateSingleSlide(sessionId, options = {}) {

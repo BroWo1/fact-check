@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { Input, Button, Typography, message } from 'ant-design-vue';
 import { marked } from 'marked';
 import factCheckService from '../services/factCheckService';
+import { BotMessageSquare } from 'lucide-vue-next';
 
 const { t } = useI18n();
 
@@ -189,7 +190,7 @@ defineExpose({
       @click="toggleCollapse"
       :disabled="!isSessionReady"
     >
-      🤖
+      <BotMessageSquare :size="24" />
     </button>
   </div>
 
@@ -200,7 +201,7 @@ defineExpose({
         <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
         <div class="mobile-overlay-content">
         <div class="mobile-header">
-          <h4 class="mobile-title">🤖 {{ t('aiQuickAsk.title') || 'Quick Ask AI' }}</h4>
+          <h4 class="mobile-title"><BotMessageSquare :size="18" style="margin-right: 4px; display: inline-block;" /> {{ t('aiQuickAsk.title') || 'Quick Ask AI' }}</h4>
           <button class="mobile-close-button" @click="closeMobileOverlay">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M12 4l-8 8m0-8l8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -272,7 +273,7 @@ defineExpose({
   <transition name="ai-quick-ask-fade">
     <div v-if="visible && !isMobile" class="ai-quick-ask-container">
       <div class="ai-quick-ask-header" @click="toggleCollapse" :class="{ 'collapsed': isCollapsed }">
-        <h4 class="ai-quick-ask-title">🤖 {{ t('aiQuickAsk.title') || 'Quick Ask AI' }}</h4>
+        <h4 class="ai-quick-ask-title"><BotMessageSquare :size="18" style="margin-right: 4px; display: inline-block;" /> {{ t('aiQuickAsk.title') || 'Quick Ask AI' }}</h4>
         <div class="collapse-indicator" :class="{ 'collapsed': isCollapsed }">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>

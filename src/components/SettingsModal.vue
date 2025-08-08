@@ -69,6 +69,16 @@
                 </button>
               </div>
             </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">What's New</label>
+                <div class="setting-description">View the latest feature update</div>
+              </div>
+              <div class="setting-control">
+                <button class="action-button" @click="handleShowLatestUpdate">Show latest update</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -90,7 +100,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'show-feature-intro'])
 
 const maxMode = ref(false)
 const { savedAnalyses } = useSavedAnalyses()
@@ -163,6 +173,10 @@ const handleOverlayClick = (event) => {
 
 const closeModal = () => {
   emit('close')
+}
+
+const handleShowLatestUpdate = () => {
+  emit('show-feature-intro')
 }
 </script>
 
@@ -405,6 +419,24 @@ const closeModal = () => {
 
 .setting-control {
   margin-left: 16px;
+}
+
+.action-button {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background: #333333;
+  border-color: #333333;
 }
 
 .toggle-switch {

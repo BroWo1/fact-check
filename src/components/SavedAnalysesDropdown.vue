@@ -5,7 +5,7 @@
       @click="toggleDropdown"
       :class="{ 'has-analyses': hasAnalyses }"
     >
-      📂 {{ t('savedAnalyses.title') }}
+      <Files :size="16" style="margin-right: 4px;" /> {{ t('savedAnalyses.title') }}
       <span v-if="hasAnalyses" class="analysis-count">({{ savedAnalyses.length }})</span>
       <span class="dropdown-arrow" :class="{ 'open': isOpen }">▼</span>
     </Button>
@@ -161,6 +161,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { Button, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
+import { Files } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const emit = defineEmits(['select-analysis'])

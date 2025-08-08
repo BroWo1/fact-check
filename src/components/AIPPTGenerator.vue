@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-markup.min.js';
 import 'prismjs/themes/prism-tomorrow.css';
+import { Presentation } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const { recordPPTGeneration } = usePPTGenerations();
@@ -39,7 +40,8 @@ const props = defineProps({
 const emit = defineEmits(['collapse-changed']);
 
 const isGenerating = ref(false);
-const isCollapsed = ref(true);
+const isCollapsed = ref(true)
+const showTempGlow = ref(false);
 const savedPPT = ref(null);
 const showPPTModal = ref(false);
 const currentSlideIndex = ref(0);
@@ -155,6 +157,19 @@ const dynamicMaxHeight = computed(() => {
   return `calc(100vh - ${topValue + 20}px)`;
 });
 
+// New: concise label for the Generate button that avoids long titles
+const generateButtonLabel = computed(() => {
+  if (isGenerating.value) {
+    const total = generationProgress.value.total || 0;
+    if (total > 0) {
+      const index = Math.min(generationProgress.value.current + 1, total);
+      return `Slide ${index}/${total}`;
+    }
+    return 'Generating...';
+  }
+  return savedPPT.value ? 'Regenerate PPT' : 'Generate PPT';
+});
+
 const toggleCollapse = () => {
   if (isMobile.value) {
     isMobileOverlayOpen.value = !isMobileOverlayOpen.value;
@@ -264,11 +279,26 @@ onMounted(() => {
   emit('collapse-changed', isCollapsed.value);
   nextTick(fitSlide);
   window.addEventListener('resize', fitSlide);
+  
+  // Listen for the open PPT generator event
+  window.addEventListener('open-ppt-generator', () => {
+    if (props.visible && !isMobile.value) {
+      isCollapsed.value = false;
+      emit('collapse-changed', isCollapsed.value);
+      
+      // Show temporary glow effect
+      showTempGlow.value = true;
+      setTimeout(() => {
+        showTempGlow.value = false;
+      }, 3000); // Glow for 3 seconds
+    }
+  });
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   window.removeEventListener('resize', fitSlide);
+  window.removeEventListener('open-ppt-generator', () => {});
 });
 
 // Watch for sessionId changes to refresh PPT data when loading different conversations
@@ -983,99 +1013,116 @@ const downloadPDF = async () => {
   try {
     message.info('Generating PDF... This may take a moment for multiple slides.');
 
-    // Create a new jsPDF instance
+    // Use slide-native size (16:9) for perfect fit
+    const SLIDE_W = 1280;
+    const SLIDE_H = 720;
+
+    // Create a new jsPDF instance using pixel units and custom page size per slide
     const pdf = new jsPDF({
       orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
+      unit: 'px',
+      format: [SLIDE_W, SLIDE_H],
+      compressPdf: true
     });
-
-    // A4 landscape dimensions in mm
-    const pageWidth = 297;
-    const pageHeight = 210;
-    const margin = 10;
-    const contentWidth = pageWidth - (margin * 2);
-    const contentHeight = pageHeight - (margin * 2);
-
-    // Calculate scale to fit 16:9 slide within A4 landscape with margins
-    const slideAspectRatio = 16 / 9;
-    const availableAspectRatio = contentWidth / contentHeight;
-    
-    let slideWidth, slideHeight;
-    if (slideAspectRatio > availableAspectRatio) {
-      // Slide is wider than available space, fit to width
-      slideWidth = contentWidth;
-      slideHeight = contentWidth / slideAspectRatio;
-    } else {
-      // Slide is taller than available space, fit to height
-      slideHeight = contentHeight;
-      slideWidth = contentHeight * slideAspectRatio;
-    }
-
-    // Center the slide on the page
-    const xOffset = margin + (contentWidth - slideWidth) / 2;
-    const yOffset = margin + (contentHeight - slideHeight) / 2;
 
     let isFirstSlide = true;
 
     for (let i = 0; i < savedPPT.value.slides.length; i++) {
       const slide = savedPPT.value.slides[i];
-      
-      // Create a temporary iframe to render the slide
+
+      // Build a complete HTML document to improve style fidelity inside the iframe
+      const htmlDoc = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  html, body { margin: 0; padding: 0; width: ${SLIDE_W}px; height: ${SLIDE_H}px; background: #ffffff; }
+  /* Improve text rendering & visual fidelity */
+  * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+</style>
+</head>
+<body>
+${slide.content}
+</body>
+</html>`;
+
+      // Create a temporary offscreen iframe to render the slide
       const iframe = document.createElement('iframe');
-      iframe.style.position = 'absolute';
-      iframe.style.left = '-9999px'; // Hide offscreen
-      iframe.style.width = '1280px';
-      iframe.style.height = '720px';
-      iframe.style.border = 'none';
-      iframe.srcdoc = slide.content;
-      
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-10000px';
+      iframe.style.top = '0';
+      iframe.style.width = SLIDE_W + 'px';
+      iframe.style.height = SLIDE_H + 'px';
+      iframe.style.border = '0';
+      iframe.srcdoc = htmlDoc;
       document.body.appendChild(iframe);
 
-      // Wait for iframe to load
+      // Wait for iframe to load and fonts to be ready
       await new Promise((resolve) => {
-        iframe.onload = resolve;
-        // Fallback timeout
-        setTimeout(resolve, 2000);
+        let resolved = false;
+        const done = () => { if (!resolved) { resolved = true; resolve(); } };
+        iframe.onload = () => {
+          try {
+            const idoc = iframe.contentDocument || iframe.contentWindow.document;
+            if (idoc?.fonts?.ready) {
+              idoc.fonts.ready.then(() => setTimeout(done, 50)).catch(done);
+            } else {
+              setTimeout(done, 150);
+            }
+          } catch {
+            setTimeout(done, 150);
+          }
+        };
+        // Fallback timeout in case onload doesn't fire
+        setTimeout(done, 2500);
       });
 
       try {
-        // Capture the iframe content
-        const canvas = await html2canvas(iframe.contentDocument.body, {
-          width: 1280,
-          height: 720,
-          scale: 1,
+        const idoc = iframe.contentDocument || iframe.contentWindow.document;
+        // Ensure images are CORS-enabled for html2canvas
+        try {
+          const imgs = idoc?.images ? Array.from(idoc.images) : [];
+          imgs.forEach(img => {
+            try { img.crossOrigin = 'anonymous'; } catch {}
+          });
+        } catch {}
+
+        // Render the iframe body to canvas at higher scale for sharper output
+        const canvas = await html2canvas(idoc.body, {
+          backgroundColor: '#ffffff',
+          width: SLIDE_W,
+          height: SLIDE_H,
+          windowWidth: SLIDE_W,
+          windowHeight: SLIDE_H,
+          scale: window.devicePixelRatio > 1 ? 2 : 1,
           useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
+          allowTaint: false,
+          foreignObjectRendering: true
         });
 
-        // Add a new page for each slide except the first
+        // Add a new page for each slide after the first
         if (!isFirstSlide) {
-          pdf.addPage();
+          pdf.addPage([SLIDE_W, SLIDE_H], 'landscape');
         }
         isFirstSlide = false;
 
-        // Convert canvas to image and add to PDF
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', xOffset, yOffset, slideWidth, slideHeight);
-
-        // Add slide number
-        pdf.setFontSize(10);
-        pdf.setTextColor(128, 128, 128);
-        pdf.text(`${i + 1} / ${savedPPT.value.slides.length}`, pageWidth - margin - 20, pageHeight - margin + 5);
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        // Place image to fully cover the page
+        pdf.addImage(imgData, 'PNG', 0, 0, SLIDE_W, SLIDE_H, undefined, 'FAST');
 
       } catch (error) {
         console.error(`Error capturing slide ${i + 1}:`, error);
-        // Add error placeholder
         if (!isFirstSlide) {
-          pdf.addPage();
+          pdf.addPage([SLIDE_W, SLIDE_H], 'landscape');
         }
         isFirstSlide = false;
-        
-        pdf.setFontSize(16);
-        pdf.setTextColor(255, 0, 0);
-        pdf.text(`Error loading slide ${i + 1}`, xOffset + 20, yOffset + 20);
+        // Add an error placeholder page to keep slide numbering
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, SLIDE_W, SLIDE_H, 'F');
+        pdf.setTextColor(200, 0, 0);
+        pdf.setFontSize(18);
+        pdf.text(`Error loading slide ${i + 1}`, 40, 40);
       } finally {
         // Clean up the temporary iframe
         document.body.removeChild(iframe);
@@ -1085,11 +1132,12 @@ const downloadPDF = async () => {
     // Generate filename with timestamp
     const now = new Date();
     const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
-    const filename = `${savedPPT.value.title.replace(/[^a-z0-9]/gi, '_')}_${timestamp}.pdf`;
+    const safeTitle = (savedPPT.value.title || 'Presentation').replace(/[^a-z0-9]/gi, '_');
+    const filename = `${safeTitle}_${timestamp}.pdf`;
 
     // Save the PDF
     pdf.save(filename);
-    
+
     message.success(`PDF downloaded successfully: ${filename}`);
 
   } catch (error) {
@@ -1175,7 +1223,7 @@ const regenerateSlide = async () => {
       @click="toggleCollapse"
       :disabled="!isSessionReady"
     >
-      📊
+      <Presentation :size="24" />
     </button>
   </div>
 
@@ -1185,7 +1233,7 @@ const regenerateSlide = async () => {
       <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
       <div class="mobile-overlay-content">
         <div class="mobile-header">
-          <h4 class="mobile-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
+          <h4 class="mobile-title"><Presentation :size="18" style="margin-right: 4px; display: inline-block;" /> {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
           <button class="mobile-close-button" @click="closeMobileOverlay">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M12 4l-8 8m0-8l8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1268,7 +1316,7 @@ const regenerateSlide = async () => {
                 class="generate-button"
                 size="small"
               >
-                {{ isGenerating ? (generationProgress.currentTask || 'Generating...') : (savedPPT ? 'Regenerate PPT' : 'Generate PPT') }}
+                {{ generateButtonLabel }}
               </Button>
               <Button
                 v-if="savedPPT"
@@ -1287,9 +1335,9 @@ const regenerateSlide = async () => {
 
   <!-- Desktop Version -->
   <transition name="ai-ppt-generator-fade">
-    <div v-if="visible && !isMobile" class="ai-ppt-generator-container" :style="{ top: dynamicTopPosition, maxHeight: dynamicMaxHeight }">
+    <div v-if="visible && !isMobile" class="ai-ppt-generator-container" :class="{ 'temp-glow': showTempGlow }" :style="{ top: dynamicTopPosition, maxHeight: dynamicMaxHeight }">
       <div class="ai-ppt-generator-header" @click="toggleCollapse" :class="{ 'collapsed': isCollapsed }">
-        <h4 class="ai-ppt-generator-title">📊 {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
+        <h4 class="ai-ppt-generator-title"><Presentation :size="18" style="margin-right: 4px; display: inline-block;" /> {{ t('aiPPT.title') || 'AI PPT Generator' }} <span class="beta-indicator">BETA</span></h4>
         <div class="collapse-indicator" :class="{ 'collapsed': isCollapsed }">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1373,7 +1421,7 @@ const regenerateSlide = async () => {
                 class="generate-button"
                 size="small"
               >
-                {{ isGenerating ? (generationProgress.currentTask || 'Generating...') : (savedPPT ? 'Regenerate PPT' : 'Generate PPT') }}
+                {{ generateButtonLabel }}
               </Button>
               <Button
                 v-if="savedPPT"
@@ -1625,7 +1673,36 @@ const regenerateSlide = async () => {
   overflow: hidden;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   z-index: 97; /* Lower than AIQuickAsk (99) to prevent overlap */
-  transition: top 0.3s ease, max-height 0.3s ease; /* Smooth transitions */
+  transition: top 0.3s ease, max-height 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; /* Smooth transitions */
+}
+
+.ai-ppt-generator-container.temp-glow {
+  border-color: #ff8c00;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.6);
+  animation: temp-glow-pulse 3s ease-out;
+}
+
+@keyframes temp-glow-pulse {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 140, 0, 0);
+    border-color: #e9ecef;
+  }
+  10% {
+    box-shadow: 0 0 25px rgba(255, 140, 0, 0.8);
+    border-color: #ff8c00;
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 140, 0, 0.6);
+    border-color: #ff8c00;
+  }
+  90% {
+    box-shadow: 0 0 20px rgba(255, 140, 0, 0.4);
+    border-color: #ff8c00;
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 140, 0, 0);
+    border-color: #e9ecef;
+  }
 }
 
 .ai-ppt-generator-header {
@@ -1865,9 +1942,10 @@ const regenerateSlide = async () => {
   color: #666666;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Allow long titles to wrap and not overflow */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .progress-count {
@@ -3087,49 +3165,6 @@ const regenerateSlide = async () => {
   .slide-iframe {
     min-width: 280px;
     min-height: 158px;
-  }
-
-  .failed-slides-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .retry-all-button {
-    align-self: flex-end;
-  }
-
-  .slides-scroll-container {
-    padding: 16px 0;
-  }
-  
-  .slide-item {
-    max-width: calc(100% - 24px);
-    margin-bottom: 24px;
-    padding: 0 12px;
-  }
-
-  .ppt-modal-body {
-    flex-direction: column;
-  }
-
-  .thumbnails-sidebar {
-    width: 100%;
-    height: 100px;
-    border-right: none;
-    border-bottom: 1px solid #e9ecef;
-  }
-
-  .thumbnails-list {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .thumbnail-item {
-    flex-shrink: 0;
-    width: 100px;
   }
 }
 

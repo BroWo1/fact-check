@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { Presentation, Settings, Files } from 'lucide-vue-next'
+import { Bug } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router'
 import { Input, Button, Typography, Space, Layout, Upload, notification, Modal, Select, Tooltip } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +20,7 @@ import TableOfContents from '../components/TableOfContents.vue'
 import AIContainer from '../components/AIContainer.vue'
 import TextSelectionPopup from '../components/TextSelectionPopup.vue'
 import SettingsModal from '../components/SettingsModal.vue'
+import BugReportModal from '../components/BugReportModal.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 // Define props
@@ -210,6 +212,7 @@ const isMobileMenuOpen = ref(false)
 const headerActionsRef = ref(null)
 const selectedMode = ref('fact_check')
 const showSettingsModal = ref(false)
+const showBugReportModal = ref(false)
 
 // Feature intro modal state
 const showFeatureIntroModal = ref(false)
@@ -475,9 +478,13 @@ const openAIQuickAsk = () => {
 }
 
 const openAIPPT = () => {
-  // For now, show unavailable message
-  // In the future, this will open the AI PPT mobile modal
+  // Close popup first
   closeAIToolsPopup()
+  // Trigger the mobile PPT generator overlay through a custom event with a small delay
+  setTimeout(() => {
+    console.log('Dispatching open-ai-ppt-mobile event')
+    window.dispatchEvent(new CustomEvent('open-ai-ppt-mobile'))
+  }, 100)
 }
 
 const restoreScrollPosition = () => {
@@ -1332,13 +1339,12 @@ const getReportContent = () => {
               <span>AI Quick Ask</span>
             </button>
             <button 
-              class="ai-tool-button ai-ppt-button disabled"
+              class="ai-tool-button ai-ppt-button"
               @click="openAIPPT"
-              aria-label="AI PPT Generator (Coming Soon)"
-              disabled
+              aria-label="AI PPT Generator"
             >
               <Presentation :size="18" />
-              <span>AI PPT <small>(Soon)</small></span>
+              <span>AI PPT Generator</span>
             </button>
           </div>
         </Transition>
@@ -1390,6 +1396,12 @@ const getReportContent = () => {
       :visible="showSettingsModal"
       @close="showSettingsModal = false"
       @show-feature-intro="handleShowFeatureIntro"
+    />
+
+    <!-- Bug Report Modal -->
+    <BugReportModal
+      :visible="showBugReportModal"
+      @close="showBugReportModal = false"
     />
 
     <!-- Feature Intro Modal: GPT-5 + AI PPT -->
@@ -1455,6 +1467,16 @@ const getReportContent = () => {
       </div>
     </a-modal>
   </Layout>
+
+  <!-- Bottom-left Report Bugs Button -->
+  <button
+    class="bug-report-button"
+    @click="showBugReportModal = true"
+    aria-label="Report bugs"
+  >
+    <span class="bug-icon"><Bug class="ai-icon" :size="16" /></span>
+    <span class="bug-label">Report Bugs</span>
+  </button>
 </template>
 
 <style scoped>
@@ -2754,7 +2776,7 @@ const getReportContent = () => {
   position: fixed;
   bottom: 100px;
   right: 32px;
-  z-index: 1001;
+  z-index: 900;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2808,6 +2830,55 @@ const getReportContent = () => {
 
 .ai-tools-button.active svg {
   transform: none;
+}
+
+/* Bottom-left Report Bugs Button */
+.bug-report-button {
+  position: fixed;
+  bottom: 32px;
+  left: 32px;
+  z-index: 900;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: #f8f9fa;
+  border: 1px solid #d9d9d9;
+  color: #666666;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.bug-report-button:hover {
+  background: #e9ecef;
+  border-color: #757575;
+  color: #495057;
+  transform: translateY(-1px);
+}
+
+.bug-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.bug-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .bug-report-button {
+    bottom: 24px;
+    left: 24px;
+    height: 36px;
+    padding: 0 12px;
+  }
+  .bug-label {
+    font-size: 12px;
+  }
 }
 
 /* AI Tools Popup */

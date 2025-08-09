@@ -802,8 +802,9 @@ defineExpose({
   z-index: 1500;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding-top: 20px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
 }
 
 .mobile-overlay-backdrop {
@@ -812,9 +813,8 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .mobile-overlay-content {
@@ -822,10 +822,10 @@ defineExpose({
   width: calc(100% - 32px);
   max-width: 400px;
   background: #ffffff;
-  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   max-height: 80vh;
   overflow: hidden;
 }
@@ -834,11 +834,10 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px 12px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: #fafafa;
-  border-radius: 12px 12px 0 0;
 }
 
 .mobile-title {
@@ -850,26 +849,28 @@ defineExpose({
 }
 
 .mobile-close-button {
-  background: none;
+  background: transparent;
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: #666666;
+  color: #999999;
   border-radius: 6px;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 .mobile-close-button:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.04);
   color: #000000;
 }
 
 .mobile-content {
   flex: 1;
-  padding: 16px 20px 20px 20px;
+  padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -877,31 +878,51 @@ defineExpose({
 }
 
 /* Mobile Overlay Transitions */
-.mobile-overlay-enter-active,
+.mobile-overlay-enter-active {
+  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 .mobile-overlay-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 0.2s cubic-bezier(0.755, 0.05, 0.855, 0.06);
 }
 
-.mobile-overlay-enter-active .mobile-overlay-backdrop,
-.mobile-overlay-leave-active .mobile-overlay-backdrop {
-  transition: all 0.3s ease;
-}
-
-.mobile-overlay-enter-active .mobile-overlay-content,
-.mobile-overlay-leave-active .mobile-overlay-content {
-  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.mobile-overlay-enter-from .mobile-overlay-backdrop,
-.mobile-overlay-leave-to .mobile-overlay-backdrop {
+.mobile-overlay-enter-from {
   opacity: 0;
   backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
 }
 
-.mobile-overlay-enter-from .mobile-overlay-content,
+.mobile-overlay-enter-to {
+  opacity: 1;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-overlay-leave-from {
+  opacity: 1;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-overlay-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+}
+
+.mobile-overlay-enter-from .mobile-overlay-content {
+  transform: scale(0.5);
+  opacity: 0;
+}
+
+.mobile-overlay-enter-to .mobile-overlay-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.mobile-overlay-leave-from .mobile-overlay-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
 .mobile-overlay-leave-to .mobile-overlay-content {
-  transform: translateY(-100%) scale(0.95);
+  transform: scale(0.5);
   opacity: 0;
 }
 
@@ -942,6 +963,10 @@ defineExpose({
     flex: 0 0 auto;
   }
   
+  .mobile-content {
+    padding: 16px;
+    gap: 16px;
+  }
   
   .mobile-content .question-input {
     font-size: 16px !important; /* Prevent zoom on iOS */

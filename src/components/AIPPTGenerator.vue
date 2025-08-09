@@ -76,6 +76,9 @@ const generationProgress = ref({
 // Mobile/small screen specific state
 const isMobile = ref(false);
 const isMobileOverlayOpen = ref(false);
+// Mobile expanded slide overlay state
+const isMobileSlideExpanded = ref(false);
+const expandedSlideIndex = ref(null);
 
 const isSessionReady = computed(() => !!props.sessionId);
 
@@ -191,11 +194,20 @@ const checkMobile = () => {
 
 // Scale the fixed-size 1280x720 slide inside the iframe to fit its container
 const fitSlide = () => {
-  // This function is now used for individual slide scaling in the scrollable view
+  // Handle both desktop scrollable slides and mobile slides
   slideElements.value.forEach((slideElement) => {
     if (!slideElement) return;
-    const slideContainer = slideElement.querySelector('.slide-container-scrollable');
-    const iframe = slideElement.querySelector('iframe');
+    
+    // Check for desktop scrollable container
+    let slideContainer = slideElement.querySelector('.slide-container-scrollable');
+    let iframe = slideElement.querySelector('.slide-iframe-scrollable');
+    
+    // Check for mobile container
+    if (!slideContainer) {
+      slideContainer = slideElement.querySelector('.mobile-slide-container');
+      iframe = slideElement.querySelector('.mobile-slide-iframe');
+    }
+    
     if (!slideContainer || !iframe) return;
     
     const W = 1280, H = 720;
@@ -213,6 +225,28 @@ const fitSlide = () => {
     iframe.style.marginTop = `-${H/2}px`;
     iframe.style.marginLeft = `-${W/2}px`;
   });
+
+  // Also handle expanded mobile slide overlay
+  try {
+    const expandedContainer = document.querySelector('.mobile-expanded-slide-container');
+    const expandedIframe = document.querySelector('.mobile-expanded-slide-iframe');
+    if (expandedContainer && expandedIframe) {
+      const W = 1280, H = 720;
+      const containerWidth = expandedContainer.clientWidth;
+      const containerHeight = expandedContainer.clientHeight;
+      const scale = Math.min(containerWidth / W, containerHeight / H);
+
+      expandedIframe.style.width = W + 'px';
+      expandedIframe.style.height = H + 'px';
+      expandedIframe.style.transform = `scale(${scale})`;
+      expandedIframe.style.transformOrigin = 'center center';
+      expandedIframe.style.position = 'absolute';
+      expandedIframe.style.top = '50%';
+      expandedIframe.style.left = '50%';
+      expandedIframe.style.marginTop = `-${H/2}px`;
+      expandedIframe.style.marginLeft = `-${W/2}px`;
+    }
+  } catch {}
 };
 
 // Function to handle scroll events and update current slide index
@@ -293,12 +327,26 @@ onMounted(() => {
       }, 3000); // Glow for 3 seconds
     }
   });
+  
+  // Listen for mobile PPT generator open event
+  window.addEventListener('open-ai-ppt-mobile', () => {
+    console.log('AIPPTGenerator received open-ai-ppt-mobile event, isMobile:', isMobile.value, 'visible:', props.visible);
+    if (isMobile.value && props.visible) {
+      console.log('Opening mobile PPT overlay');
+      isMobileOverlayOpen.value = true;
+      // Force slide scaling after modal opens
+      setTimeout(() => {
+        fitSlide();
+      }, 200);
+    }
+  });
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   window.removeEventListener('resize', fitSlide);
   window.removeEventListener('open-ppt-generator', () => {});
+  window.removeEventListener('open-ai-ppt-mobile', () => {});
 });
 
 // Watch for sessionId changes to refresh PPT data when loading different conversations
@@ -364,6 +412,19 @@ watch(isEditMode, (editing) => {
     });
   }
 });
+
+// Open/close expanded slide on mobile
+const expandMobileSlide = (index) => {
+  if (!isMobile.value) return;
+  expandedSlideIndex.value = index;
+  isMobileSlideExpanded.value = true;
+  nextTick(() => setTimeout(fitSlide, 50));
+};
+
+const closeExpandedSlide = () => {
+  isMobileSlideExpanded.value = false;
+  expandedSlideIndex.value = null;
+};
 
 watch(showHTMLCode, (showingHTML) => {
   if (!showingHTML && showPPTModal.value) {
@@ -599,9 +660,18 @@ const prevSlide = () => {
 };
 
 const clearPPT = () => {
-  localStorage.removeItem(`ppt_${props.sessionId}`);
-  savedPPT.value = null;
-  message.success('PPT cleared');
+  Modal.confirm({
+    title: 'Clear PPT?',
+    content: 'This will permanently delete the current presentation. Are you sure you want to continue?',
+    okText: 'Yes, Clear',
+    cancelText: 'Cancel',
+    okType: 'danger',
+    onOk() {
+      localStorage.removeItem(`ppt_${props.sessionId}`);
+      savedPPT.value = null;
+      message.success('PPT cleared');
+    }
+  });
 };
 
 const toggleHTMLCode = () => {
@@ -1227,9 +1297,10 @@ const regenerateSlide = async () => {
     </button>
   </div>
 
-  <!-- Mobile Overlay -->
-  <transition name="mobile-overlay">
-    <div v-if="isMobile && isMobileOverlayOpen" class="mobile-overlay">
+  <!-- Mobile Overlay - Use Teleport to render to body -->
+  <Teleport to="body">
+    <transition name="mobile-overlay">
+      <div v-if="isMobile && isMobileOverlayOpen" class="mobile-overlay">
       <div class="mobile-overlay-backdrop" @click="closeMobileOverlay"></div>
       <div class="mobile-overlay-content">
         <div class="mobile-header">
@@ -1243,14 +1314,39 @@ const regenerateSlide = async () => {
 
         <div class="mobile-content">
           <div class="ppt-section">
-            <!-- Saved PPT Card -->
-            <div v-if="savedPPT" class="ppt-card" @click="openPPTModal">
-              <div class="ppt-card-header">
-                <h5 class="ppt-card-title">{{ savedPPT.title }}</h5>
-                <span class="ppt-card-slides">{{ savedPPT.slides.length }} slides</span>
+            <!-- Mobile PPT Viewer -->
+            <div v-if="savedPPT" class="mobile-ppt-viewer">
+              <div class="mobile-ppt-header">
+                <h5 class="mobile-ppt-title">{{ savedPPT.title }}</h5>
+                <div class="mobile-ppt-meta">
+                  <span class="mobile-slide-counter">{{ currentSlideIndex + 1 }} / {{ savedPPT.slides.length }}</span>
+                  <button @click="downloadPDF" class="mobile-download-button" :disabled="isGeneratingPDF">
+                    {{ isGeneratingPDF ? 'Generating...' : '📄 PDF' }}
+                  </button>
+                </div>
               </div>
-              <div class="ppt-card-meta">
-                Created {{ new Date(savedPPT.createdAt).toLocaleDateString() }}
+              
+              <!-- Mobile Slide Scroller -->
+              <div class="mobile-slides-container" ref="scrollContainer">
+                <div
+                  v-for="(slide, index) in savedPPT.slides"
+                  :key="slide.id || index"
+                  :ref="el => slideElements[index] = el"
+                  class="mobile-slide-item"
+                  :class="{ 'active': index === currentSlideIndex }"
+                >
+                  <div class="mobile-slide-number">{{ index + 1 }} / {{ savedPPT.slides.length }}</div>
+                  <div class="mobile-slide-container">
+                    <iframe
+                      :srcdoc="slide.content"
+                      class="mobile-slide-iframe"
+                      frameborder="0"
+                      scrolling="no"
+                      @load="fitSlide"
+                    ></iframe>
+                    <div class="mobile-slide-tap-overlay" @click="expandMobileSlide(index)" aria-label="Expand slide"></div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1331,7 +1427,34 @@ const regenerateSlide = async () => {
         </div>
       </div>
     </div>
-  </transition>
+    </transition>
+  </Teleport>
+
+  <!-- Mobile Expanded Slide Overlay -->
+  <Teleport to="body">
+    <transition name="mobile-expanded-fade">
+      <div
+        v-if="isMobile && isMobileSlideExpanded && expandedSlideIndex !== null && savedPPT && savedPPT.slides[expandedSlideIndex]"
+        class="mobile-expanded-overlay"
+      >
+        <div class="mobile-expanded-backdrop" @click="closeExpandedSlide"></div>
+        <div class="mobile-expanded-content">
+          <button class="mobile-expanded-close" @click="closeExpandedSlide" aria-label="Close">
+            ✕
+          </button>
+          <div class="mobile-expanded-slide-container">
+            <iframe
+              :srcdoc="savedPPT.slides[expandedSlideIndex].content"
+              class="mobile-expanded-slide-iframe"
+              frameborder="0"
+              scrolling="no"
+              @load="fitSlide"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </Teleport>
 
   <!-- Desktop Version -->
   <transition name="ai-ppt-generator-fade">
@@ -2081,6 +2204,149 @@ const regenerateSlide = async () => {
   transform: translateY(-1px);
 }
 
+/* Mobile PPT Viewer Styles */
+.mobile-ppt-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  max-height: 60vh;
+}
+
+.mobile-ppt-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-ppt-title {
+  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+}
+
+.mobile-ppt-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-slide-counter {
+  font-size: 12px;
+  color: #666666;
+  font-weight: 500;
+  background: #f0f0f0;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.mobile-download-button {
+  background: #28a745;
+  border: 1px solid #28a745;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-weight: 600;
+}
+
+.mobile-download-button:hover:not(:disabled) {
+  background: #218838;
+  border-color: #218838;
+  transform: translateY(-1px);
+}
+
+.mobile-download-button:disabled {
+  background: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.mobile-slides-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px 0;
+  scroll-behavior: smooth;
+  max-height: 55vh;
+}
+
+.mobile-slide-item {
+  margin: 0 auto 20px auto;
+  max-width: calc(100% - 12px);
+  position: relative;
+  padding: 0 6px;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-slide-item:last-child {
+  margin-bottom: 12px;
+}
+
+.mobile-slide-item.active .mobile-slide-number {
+  background: #000000;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.mobile-slide-number {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  color: #666666;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: inline-block;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.mobile-slide-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.mobile-slide-iframe {
+  border: none;
+  background: #ffffff;
+  /* Positioning and scaling handled by JavaScript */
+}
+
+.mobile-slide-tap-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: zoom-in;
+  background: transparent;
+}
+
+.mobile-button-group {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
+}
+
 /* Mobile styles */
 .mobile-ppt-generator {
   position: fixed;
@@ -2123,11 +2389,12 @@ const regenerateSlide = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1500;
+  z-index: 999;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding-top: 20px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
 }
 
 .mobile-overlay-backdrop {
@@ -2136,9 +2403,8 @@ const regenerateSlide = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .mobile-overlay-content {
@@ -2146,10 +2412,10 @@ const regenerateSlide = async () => {
   width: calc(100% - 32px);
   max-width: 400px;
   background: #ffffff;
-  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   max-height: 80vh;
   overflow: hidden;
 }
@@ -2158,11 +2424,10 @@ const regenerateSlide = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px 12px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
   background: #fafafa;
-  border-radius: 12px 12px 0 0;
 }
 
 .mobile-title {
@@ -2174,26 +2439,28 @@ const regenerateSlide = async () => {
 }
 
 .mobile-close-button {
-  background: none;
+  background: transparent;
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: #666666;
+  color: #999999;
   border-radius: 6px;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 .mobile-close-button:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.04);
   color: #000000;
 }
 
 .mobile-content {
   flex: 1;
-  padding: 16px 20px 20px 20px;
+  padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -3013,31 +3280,51 @@ const regenerateSlide = async () => {
   transform: translateX(10px);
 }
 
-.mobile-overlay-enter-active,
+.mobile-overlay-enter-active {
+  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 .mobile-overlay-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 0.2s cubic-bezier(0.755, 0.05, 0.855, 0.06);
 }
 
-.mobile-overlay-enter-active .mobile-overlay-backdrop,
-.mobile-overlay-leave-active .mobile-overlay-backdrop {
-  transition: all 0.3s ease;
-}
-
-.mobile-overlay-enter-active .mobile-overlay-content,
-.mobile-overlay-leave-active .mobile-overlay-content {
-  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.mobile-overlay-enter-from .mobile-overlay-backdrop,
-.mobile-overlay-leave-to .mobile-overlay-backdrop {
+.mobile-overlay-enter-from {
   opacity: 0;
   backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
 }
 
-.mobile-overlay-enter-from .mobile-overlay-content,
+.mobile-overlay-enter-to {
+  opacity: 1;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-overlay-leave-from {
+  opacity: 1;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-overlay-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+}
+
+.mobile-overlay-enter-from .mobile-overlay-content {
+  transform: scale(0.5);
+  opacity: 0;
+}
+
+.mobile-overlay-enter-to .mobile-overlay-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.mobile-overlay-leave-from .mobile-overlay-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
 .mobile-overlay-leave-to .mobile-overlay-content {
-  transform: translateY(-100%) scale(0.95);
+  transform: scale(0.5);
   opacity: 0;
 }
 /* Scrollable slides container styles */
@@ -3104,6 +3391,68 @@ const regenerateSlide = async () => {
 @media (max-width: 1200px) {
   .ai-ppt-generator-container {
     display: none;
+  }
+
+  /* Expanded slide overlay */
+  .mobile-expanded-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .mobile-expanded-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .mobile-expanded-content {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-expanded-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .mobile-expanded-slide-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+  }
+
+  .mobile-expanded-slide-iframe {
+    border: 0;
+    background: #fff;
+  }
+
+  .mobile-expanded-fade-enter-active,
+  .mobile-expanded-fade-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .mobile-expanded-fade-enter-from,
+  .mobile-expanded-fade-leave-to {
+    opacity: 0;
   }
 }
 

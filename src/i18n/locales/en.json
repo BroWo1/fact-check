@@ -167,7 +167,9 @@
     "response": "AI Response:"
   },
   "aiPPT":{
-    "title": "AI PPT"
+    "title": "AI PPT",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "pptGenerator": {
     "editPlaceholder": "Describe how you want to change this slide...",

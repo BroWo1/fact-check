@@ -167,7 +167,9 @@
     "response": "AI回应："
   },
   "aiPPT": {
-    "title": "AI PPT"
+    "title": "AI PPT",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "pptGenerator": {
     "editPlaceholder": "描述您希望如何更改此幻灯片...",

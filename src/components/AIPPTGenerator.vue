@@ -173,6 +173,59 @@ const generateButtonLabel = computed(() => {
   return savedPPT.value ? 'Regenerate PPT' : 'Generate PPT';
 });
 
+// Build a full HTML document for iframe srcdoc to ensure fonts/icons and resets
+const slideHeadHTML = `
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Legacy Material Icons (ligatures) -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Two+Tone" rel="stylesheet">
+  <!-- Material Symbols (variable fonts) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 1280px; height: 720px; background: #ffffff; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    /* Set defaults for Material Symbols classes */
+    .material-symbols-outlined,
+    .material-symbols-rounded,
+    .material-symbols-sharp {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      line-height: 1;
+      vertical-align: middle;
+      display: inline-block;
+    }
+    /* Ensure legacy Material Icons classes render consistently */
+    .material-icons,
+    .material-icons-outlined,
+    .material-icons-round,
+    .material-icons-sharp,
+    .material-icons-two-tone {
+      font-family: 'Material Icons', 'Material Icons Outlined', 'Material Icons Round', 'Material Icons Sharp', 'Material Icons Two Tone', 'Material Symbols Outlined', 'Material Symbols Rounded', 'Material Symbols Sharp', sans-serif;
+      font-size: 24px;
+      line-height: 1;
+      vertical-align: middle;
+      display: inline-block;
+    }
+  </style>
+`;
+
+const buildSlideSrcDoc = (bodyContent) => {
+  const content = bodyContent || '';
+  // If the content already looks like a full HTML document, return as-is
+  if (/<!doctype|<html[\s>]/i.test(content)) {
+    return content;
+  }
+  return `<!doctype html><html><head>${slideHeadHTML}</head><body>${content}</body></html>`;
+};
+
 const toggleCollapse = () => {
   if (isMobile.value) {
     isMobileOverlayOpen.value = !isMobileOverlayOpen.value;
@@ -249,6 +302,31 @@ const fitSlide = () => {
   } catch {}
 };
 
+// Ensure thumbnail iframes are perfectly centered and scaled to fit preview
+const fitThumbnails = () => {
+  try {
+    const previews = document.querySelectorAll('.thumbnail-preview');
+    previews.forEach((preview) => {
+      const iframe = preview.querySelector('.thumbnail-iframe');
+      if (!iframe) return;
+      const W = 1280, H = 720;
+      const containerWidth = preview.clientWidth;
+      const containerHeight = preview.clientHeight;
+      const scale = Math.min(containerWidth / W, containerHeight / H);
+
+      iframe.style.width = W + 'px';
+      iframe.style.height = H + 'px';
+      iframe.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      iframe.style.transformOrigin = 'center center';
+      iframe.style.position = 'absolute';
+      iframe.style.top = '50%';
+      iframe.style.left = '50%';
+      iframe.style.marginTop = '0';
+      iframe.style.marginLeft = '0';
+    });
+  } catch {}
+};
+
 // Function to handle scroll events and update current slide index
 const handleScroll = () => {
   if (isScrolling.value || !scrollContainer.value) return;
@@ -313,6 +391,7 @@ onMounted(() => {
   emit('collapse-changed', isCollapsed.value);
   nextTick(fitSlide);
   window.addEventListener('resize', fitSlide);
+  window.addEventListener('resize', fitThumbnails);
   
   // Listen for the open PPT generator event
   window.addEventListener('open-ppt-generator', () => {
@@ -345,6 +424,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   window.removeEventListener('resize', fitSlide);
+  window.removeEventListener('resize', fitThumbnails);
   window.removeEventListener('open-ppt-generator', () => {});
   window.removeEventListener('open-ai-ppt-mobile', () => {});
 });
@@ -374,6 +454,7 @@ watch(showPPTModal, (open) => {
       // Small delay to ensure DOM is fully rendered
       setTimeout(() => {
         fitSlide();
+        fitThumbnails();
         // Set up scroll listener
         if (scrollContainer.value) {
           scrollContainer.value.addEventListener('scroll', handleScroll);
@@ -392,6 +473,7 @@ watch(savedPPT, (newPPT) => {
   if (newPPT && showPPTModal.value) {
     nextTick(() => {
       setTimeout(fitSlide, 100);
+      setTimeout(fitThumbnails, 120);
     });
   }
 });
@@ -846,26 +928,19 @@ const saveTextEdit = () => {
           // Get the cleaned content
           const cleanedContent = bodyClone.innerHTML;
 
-          // Check if content already has the wrapper div with proper styling
-          const hasWrapper = cleanedContent.includes('style="padding: 40px; font-family: Arial, sans-serif;"');
+          // Ensure body has our default wrapper
+          const ensuredBody = cleanedContent.includes('style="padding: 40px; font-family: Arial, sans-serif;"')
+            ? cleanedContent
+            : `<div style="padding: 40px; font-family: Arial, sans-serif;">${cleanedContent}</div>`;
 
-          let updatedHTML;
-          if (hasWrapper) {
-            // Content already has wrapper, use as-is
-            updatedHTML = cleanedContent;
-          } else {
-            // Content needs wrapper
-            updatedHTML = `<div style="padding: 40px; font-family: Arial, sans-serif;">${cleanedContent}</div>`;
-          }
-
-          // Update the slide content and save
-          savedPPT.value.slides[currentSlideIndex.value].content = updatedHTML;
+          // Store body-only; we inject head/resources at render time with buildSlideSrcDoc
+          savedPPT.value.slides[currentSlideIndex.value].content = ensuredBody;
           savePPT(savedPPT.value);
 
           // Force reactivity update
           editableSlideContent.value = '';
           setTimeout(() => {
-            editableSlideContent.value = updatedHTML;
+            editableSlideContent.value = ensuredBody;
           }, 10);
         }
       } catch (error) {
@@ -1106,10 +1181,23 @@ const downloadPDF = async () => {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@24,400,0,0" />
 <style>
   html, body { margin: 0; padding: 0; width: ${SLIDE_W}px; height: ${SLIDE_H}px; background: #ffffff; }
   /* Improve text rendering & visual fidelity */
   * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  .material-symbols-outlined,
+  .material-symbols-rounded,
+  .material-symbols-sharp {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size: 24px;
+    line-height: 1;
+    vertical-align: middle;
+    display: inline-block;
+  }
 </style>
 </head>
 <body>
@@ -1338,7 +1426,7 @@ const regenerateSlide = async () => {
                   <div class="mobile-slide-number">{{ index + 1 }} / {{ savedPPT.slides.length }}</div>
                   <div class="mobile-slide-container">
                     <iframe
-                      :srcdoc="slide.content"
+                      :srcdoc="buildSlideSrcDoc(slide.content)"
                       class="mobile-slide-iframe"
                       frameborder="0"
                       scrolling="no"
@@ -1444,7 +1532,7 @@ const regenerateSlide = async () => {
           </button>
           <div class="mobile-expanded-slide-container">
             <iframe
-              :srcdoc="savedPPT.slides[expandedSlideIndex].content"
+              :srcdoc="buildSlideSrcDoc(savedPPT.slides[expandedSlideIndex].content)"
               class="mobile-expanded-slide-iframe"
               frameborder="0"
               scrolling="no"
@@ -1612,10 +1700,11 @@ const regenerateSlide = async () => {
             >
               <div class="thumbnail-preview">
                 <iframe
-                  :srcdoc="slide.content"
+                  :srcdoc="buildSlideSrcDoc(slide.content)"
                   class="thumbnail-iframe"
                   frameborder="0"
                   scrolling="no"
+                  @load="fitThumbnails"
                 ></iframe>
                 <div class="thumbnail-overlay">
                   <div class="thumbnail-number">{{ index + 1 }}</div>
@@ -1662,7 +1751,7 @@ const regenerateSlide = async () => {
               <div class="slide-number">{{ index + 1 }} / {{ savedPPT.slides.length }}</div>
               <div class="slide-container-scrollable">
                 <iframe
-                  :srcdoc="slide.content"
+                  :srcdoc="buildSlideSrcDoc(slide.content)"
                   class="slide-iframe-scrollable"
                   frameborder="0"
                   scrolling="no"
@@ -1688,7 +1777,7 @@ const regenerateSlide = async () => {
             <div class="visual-edit-content" ref="visualEditContainer">
               <iframe
                 v-if="savedPPT.slides[currentSlideIndex]"
-                :srcdoc="editableSlideContent"
+                :srcdoc="buildSlideSrcDoc(editableSlideContent)"
                 class="edit-mode-iframe"
                 ref="editModeIframe"
                 frameborder="0"
@@ -3148,20 +3237,16 @@ const regenerateSlide = async () => {
 
 .thumbnail-preview {
   width: 100%;
-  height: 100px;
+  height: 100px; /* exact 16:9 with item aspect-ratio and padding will be handled by JS centering */
   background: #ffffff;
   overflow: hidden;
   position: relative;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .thumbnail-iframe {
   width: 1280px;
   height: 720px;
-  transform: scale(0.088);
   transform-origin: center center;
   pointer-events: none;
   border: none;
@@ -3169,8 +3254,6 @@ const regenerateSlide = async () => {
   border-radius: 4px;
   top: 50%;
   left: 50%;
-  margin-top: -360px; /* Half of original height (720 / 2) */
-  margin-left: -640px; /* Half of original width (1280 / 2) */
 }
 
 .thumbnail-overlay {

@@ -1061,8 +1061,8 @@ const getReportContent = () => {
               @click="showSettingsModal = true"
               size="small"
             >
-              <span class="settings-icon">⚙️</span>
-              <span class="settings-label">Settings</span>
+              <Settings class="settings-icon" :size="14" />
+              <span class="settings-label">{{$t('settings.title')}}</span>
             </Button>
           </div>
         </div>
@@ -1102,6 +1102,9 @@ const getReportContent = () => {
               <div class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
                 <Presentation class="ai-icon" :size="16" />
                 <span class="ai-text">AI PPT</span>
+                <span class="ai-text" :class="{ enabled: selectedMode === 'research', disabled: selectedMode === 'fact_check' }">
+                  {{ selectedMode === 'research' ? t('aiPPT.enabled') : t('aiPPT.disabled') }}
+                </span>
               </div>
               <div class="input-controls">
                 <!-- Show upload button for fact-check mode -->

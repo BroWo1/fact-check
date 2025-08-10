@@ -5,7 +5,7 @@
       @click="toggleDropdown"
       :class="{ 'has-analyses': hasAnalyses }"
     >
-      <Files :size="16" style="margin-right: 4px;" /> {{ t('savedAnalyses.title') }}
+      <Files :size="16"/> {{ t('savedAnalyses.title') }}
       <span v-if="hasAnalyses" class="analysis-count">({{ savedAnalyses.length }})</span>
       <span class="dropdown-arrow" :class="{ 'open': isOpen }">▼</span>
     </Button>

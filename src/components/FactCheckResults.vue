@@ -244,6 +244,7 @@
 
 <script setup>
 import { ref, nextTick, computed, watchEffect } from 'vue'
+import { Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useCitationDeduplicator } from '../composables/useCitationDeduplicator'
 
@@ -646,7 +647,10 @@ const generatePreview = async () => {
   } catch (error) {
     console.error('Error generating preview:', error)
     showPreview.value = false
-    alert('Failed to generate preview. Please try again.')
+    Modal.error({
+      title: 'Preview Generation Failed',
+      content: 'Failed to generate preview. Please try again.'
+    })
   }
 }
 
@@ -1073,10 +1077,16 @@ const copyToClipboard = async () => {
         'image/png': currentImageBlob
       })
     ])
-    alert(t('results.copyImageSuccess'))
+    Modal.success({
+      title: 'Success',
+      content: t('results.copyImageSuccess')
+    })
   } catch (error) {
     console.error('Failed to copy to clipboard:', error)
-    alert(t('results.copyImageFailed'))
+    Modal.error({
+      title: 'Copy Failed',
+      content: t('results.copyImageFailed')
+    })
   }
 }
 

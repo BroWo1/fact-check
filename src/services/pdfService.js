@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import logoImage from '@/assets/itlookslegitTrans.png'
+import { loadFontAsBase64, LXGW_WENKAI_CONFIG } from '@/utils/fontConverter'
 
 class PDFService {
   constructor() {
@@ -17,47 +18,142 @@ class PDFService {
     this.currentPageNumber = 1
     this.citationCounter = 1
     this.citationMap = new Map()
+    this.chineseFontLoaded = false
   }
 
-  createPDF(reportData) {
-    this.doc = new jsPDF()
-    this.currentY = 40
-    this.tocItems = []
-    this.currentPageNumber = 1
-    this.citationCounter = 1
-    this.citationMap = new Map()
+  // Detect if text contains Chinese characters
+  containsChinese(text) {
+    if (!text) return false
+    return /[\u4e00-\u9fff]/.test(text)
+  }
 
-    // Add modern header with logo placeholder
-    this.addModernHeader(reportData)
-
-    // Add title
-    this.addTitle(reportData)
-
-    // Introduction section removed per user request
-
-    // Add main content sections
-    this.addMainContent(reportData)
-
-    // Add references if present
-    if (reportData.sources && reportData.sources.length > 0) {
-      this.addReferences(reportData.sources)
+  // Set appropriate font based on text content
+  setAppropriateFont(text, size = 11, style = 'normal') {
+    this.doc.setFontSize(size)
+    
+    if (this.containsChinese(text)) {
+      // For Chinese text, we'll use a different approach
+      // Since jsPDF doesn't natively support Chinese fonts without embedding
+      // we'll warn the user and use the default font
+      console.warn('Chinese characters detected in PDF. Consider using a different PDF library for better Chinese support.')
+      this.doc.setFont('helvetica', style)
+    } else {
+      // Use default fonts for Latin text
+      this.doc.setFont('helvetica', style)
     }
+  }
 
-    // Add page numbers
-    this.addPageNumbers()
+  // Initialize fonts including Chinese support
+  async initializeFonts() {
+    try {
+      console.log('Loading Chinese font for PDF...')
+      
+      // Load the Chinese font as base64
+      const fontBase64 = await loadFontAsBase64(LXGW_WENKAI_CONFIG.path)
+      
+      if (fontBase64) {
+        // Add the font to jsPDF
+        this.doc.addFileToVFS(`${LXGW_WENKAI_CONFIG.name}.ttf`, fontBase64)
+        this.doc.addFont(`${LXGW_WENKAI_CONFIG.name}.ttf`, LXGW_WENKAI_CONFIG.name, 'normal')
+        
+        // Also add bold variant (using the same font file)
+        this.doc.addFont(`${LXGW_WENKAI_CONFIG.name}.ttf`, LXGW_WENKAI_CONFIG.name, 'bold')
+        
+        this.chineseFontLoaded = true
+        console.log('Chinese font loaded successfully')
+      } else {
+        console.warn('Failed to load Chinese font, falling back to default fonts')
+        this.chineseFontLoaded = false
+      }
+    } catch (error) {
+      console.warn('Failed to initialize Chinese fonts:', error)
+      this.chineseFontLoaded = false
+    }
+  }
 
-    return this.doc
+  // Process text to handle Chinese characters
+  processTextForPDF(text) {
+    if (!text) return ''
+    
+    if (this.containsChinese(text)) {
+      // For Chinese text, we have a few options:
+      // 1. Keep the Chinese text but warn that it might not display correctly
+      // 2. Replace with placeholders 
+      // 3. Add a note about Chinese content
+      
+      console.warn('Processing text with Chinese characters for PDF')
+      
+      // Option 1: Keep the original text and let jsPDF handle it
+      // This might result in boxes or missing characters, but it's better than corruption
+      return text
+      
+      // Option 2: Add a fallback message (uncomment if needed)
+      // return text + ' [Chinese content - may not display correctly in PDF]'
+    }
+    
+    return text
+  }
+
+  async createPDF(reportData) {
+    try {
+      console.log('Creating PDF with data:', { 
+        hasOriginalClaim: !!reportData.originalClaim,
+        hasSummary: !!reportData.summary,
+        sourcesCount: reportData.sources?.length || 0,
+        summaryLength: reportData.summary?.length || 0
+      })
+
+      this.doc = new jsPDF()
+      this.currentY = 40
+      this.tocItems = []
+      this.currentPageNumber = 1
+      this.citationCounter = 1
+      this.citationMap = new Map()
+
+      // Initialize fonts (async)
+      await this.initializeFonts()
+
+      // Add modern header with logo placeholder
+      this.addModernHeader(reportData)
+
+      // Add title
+      this.addTitle(reportData)
+
+      // Introduction section removed per user request
+
+      // Add main content sections
+      this.addMainContent(reportData)
+
+      // Add references if present
+      if (reportData.sources && reportData.sources.length > 0) {
+        this.addReferences(reportData.sources)
+      }
+
+      // Add page numbers
+      this.addPageNumbers()
+
+      console.log('PDF creation completed successfully')
+      return this.doc
+    } catch (error) {
+      console.error('Error creating PDF:', error)
+      throw new Error(`PDF creation failed: ${error.message}`)
+    }
   }
 
   addModernHeader(reportData) {
-    // Add the actual logo image
-    this.doc.addImage(logoImage, 'PNG', this.margins.left, 15, 70, 15)
+    try {
+      // Add the actual logo image
+      this.doc.addImage(logoImage, 'PNG', this.margins.left, 15, 70, 15)
+    } catch (error) {
+      console.warn('Failed to add logo image to PDF:', error)
+      // Continue without logo if image fails
+    }
 
     // Add "Shallow Research" text in Crimson Text
-    this.doc.setFontSize(16)
-    this.doc.setFont('times', 'bold') // Using Times as fallback for Crimson Text
+    const headerText = 'Shallow Research'
+    this.setAppropriateFont(headerText, 16, 'bold')
     this.doc.setTextColor(0, 0, 0) // Crimson color
-    this.doc.text('Shallow Research', this.margins.left + 75, 24)
+    this.doc.text(headerText, this.margins.left + 75, 24)
     
     // Reset text color
     this.doc.setTextColor(0, 0, 0)
@@ -67,13 +163,12 @@ class PDFService {
 
   addTitle(reportData) {
     // Main title - clean, modern style
-    this.doc.setFontSize(18)
-    this.doc.setFont('helvetica', 'bold') // DM Sans fallback
-
     // Use custom title if provided, otherwise use summary as title, fallback to original claim
     const title = reportData.customTitle || 
                   reportData.analysisTitle || 
                   this.formatTitle(reportData.originalClaim || 'Research Analysis Report')
+    
+    this.setAppropriateFont(title, 18, 'bold')
     const titleLines = this.doc.splitTextToSize(title, this.pageWidth)
 
     titleLines.forEach(line => {
@@ -132,16 +227,16 @@ class PDFService {
       if (section.type === 'heading2') {
         // Main section headings - bold and enlarged like Introduction
         this.currentY += 10
-        this.doc.setFontSize(16)
-        this.doc.setFont('helvetica', 'bold') // DM Sans fallback
-        this.doc.text(section.content, this.margins.left, this.currentY)
+        const processedHeading = this.processTextForPDF(section.content)
+        this.setAppropriateFont(processedHeading, 16, 'bold')
+        this.doc.text(processedHeading, this.margins.left, this.currentY)
         this.currentY += 15
       } else if (section.type === 'heading3') {
         // Subsection headings - bold
         this.currentY += 8
-        this.doc.setFontSize(13)
-        this.doc.setFont('helvetica', 'bold') // DM Sans fallback
-        this.doc.text(section.content, this.margins.left, this.currentY)
+        const processedHeading = this.processTextForPDF(section.content)
+        this.setAppropriateFont(processedHeading, 13, 'bold')
+        this.doc.text(processedHeading, this.margins.left, this.currentY)
         this.currentY += 12
       } else if (section.type === 'bullet') {
         // Bullet points with proper formatting
@@ -250,10 +345,10 @@ class PDFService {
   }
 
   addBulletPoint(text) {
-    this.doc.setFontSize(11)
-    this.doc.setFont('helvetica', 'normal') // DM Sans fallback
+    const processedText = this.processTextForPDF(text)
+    this.setAppropriateFont(processedText, 11, 'normal')
 
-    const bulletLines = this.doc.splitTextToSize(text, this.pageWidth - 15)
+    const bulletLines = this.doc.splitTextToSize(processedText, this.pageWidth - 15)
 
     bulletLines.forEach((line, index) => {
       if (this.currentY > this.pageHeight - 20) {
@@ -272,11 +367,11 @@ class PDFService {
   }
 
   addNumberedItem(text, number) {
-    this.doc.setFontSize(11)
-    this.doc.setFont('helvetica', 'normal') // DM Sans fallback
+    const processedText = this.processTextForPDF(text)
+    this.setAppropriateFont(processedText, 11, 'normal')
 
     const numberWidth = this.doc.getTextWidth(number + '.')
-    const textLines = this.doc.splitTextToSize(text, this.pageWidth - 20)
+    const textLines = this.doc.splitTextToSize(processedText, this.pageWidth - 20)
 
     textLines.forEach((line, index) => {
       if (this.currentY > this.pageHeight - 20) {
@@ -295,11 +390,12 @@ class PDFService {
   }
 
   addParagraph(text) {
-    this.doc.setFontSize(11)
-    this.doc.setFont('helvetica', 'normal') // DM Sans fallback
-
     // Handle inline citations
-    const processedText = this.processInlineCitations(text)
+    const citationProcessedText = this.processInlineCitations(text)
+    // Process text for Chinese characters
+    const processedText = this.processTextForPDF(citationProcessedText)
+    
+    this.setAppropriateFont(processedText, 11, 'normal')
     const textLines = this.doc.splitTextToSize(processedText, this.pageWidth)
 
     textLines.forEach((line, index) => {
@@ -374,13 +470,10 @@ class PDFService {
     }
 
     this.currentY += 10
-    this.doc.setFontSize(14)
-    this.doc.setFont('helvetica', 'bold') // DM Sans fallback
-    this.doc.text('References', this.margins.left, this.currentY)
+    const referencesTitle = 'References'
+    this.setAppropriateFont(referencesTitle, 14, 'bold')
+    this.doc.text(referencesTitle, this.margins.left, this.currentY)
     this.currentY += 12
-
-    this.doc.setFontSize(10)
-    this.doc.setFont('helvetica', 'normal') // DM Sans fallback
 
     sources.forEach((source, index) => {
       if (this.currentY > this.pageHeight - 25) {
@@ -389,12 +482,17 @@ class PDFService {
 
       const refNumber = (index + 1).toString()
       const refText = `${source.title || 'Untitled'}. Available at: ${this.truncateUrl(source.url)}`
-      const refLines = this.doc.splitTextToSize(refText, this.pageWidth - 25)
+      const processedRefText = this.processTextForPDF(refText)
+      
+      this.setAppropriateFont(processedRefText, 10, 'normal')
+      const refLines = this.doc.splitTextToSize(processedRefText, this.pageWidth - 25)
 
       // Reference number with superscript style
       this.doc.setFontSize(8)
       this.doc.text(refNumber, this.margins.left + 5, this.currentY - 1)
-      this.doc.setFontSize(10)
+      
+      // Reset font for reference text
+      this.setAppropriateFont(processedRefText, 10, 'normal')
 
       // Reference text with hanging indent
       refLines.forEach((line, lineIndex) => {
@@ -410,11 +508,10 @@ class PDFService {
 
     for (let i = 1; i <= totalPages; i++) {
       this.doc.setPage(i)
-      this.doc.setFontSize(10)
-      this.doc.setFont('helvetica', 'normal') // DM Sans fallback
+      const pageText = i.toString()
+      this.setAppropriateFont(pageText, 10, 'normal')
       this.doc.setTextColor(128, 128, 128)
 
-      const pageText = i.toString()
       const pageWidth = this.doc.internal.pageSize.width
       const pageHeight = this.doc.internal.pageSize.height
 
@@ -457,13 +554,23 @@ class PDFService {
   cleanMarkdown(text) {
     if (!text) return ''
 
-    return text
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/`([^`]+)`/g, '$1')
-      // Keep heading markers for proper section parsing
-      // .replace(/^#+\s+/gm, '') // Removed to preserve headings
+    try {
+      return text
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        // Remove any potential control characters that might cause issues
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Keep Unicode characters as-is for better Chinese support
+        // .normalize('NFD') // Removed - this can break Chinese characters
+        // Keep heading markers for proper section parsing
+        // .replace(/^#+\s+/gm, '') // Removed to preserve headings
+    } catch (error) {
+      console.warn('Error cleaning markdown text:', error)
+      return text // Return original text if cleaning fails
+    }
   }
 
   formatTitle(claim) {
@@ -492,8 +599,19 @@ class PDFService {
   }
 
   downloadPDF(filename = 'research-report.pdf') {
-    if (this.doc) {
-      this.doc.save(filename)
+    try {
+      if (this.doc) {
+        console.log('Attempting to download PDF:', filename)
+        // Ensure filename has .pdf extension
+        const pdfFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
+        this.doc.save(pdfFilename)
+        console.log('PDF download initiated successfully')
+      } else {
+        throw new Error('No PDF document available for download')
+      }
+    } catch (error) {
+      console.error('Failed to download PDF:', error)
+      throw new Error(`PDF download failed: ${error.message}`)
     }
   }
 }

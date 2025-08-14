@@ -16,6 +16,7 @@
     "axios": "^1.10.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
+    "mammoth": "^1.6.0",
     "lucide-vue-next": "^0.539.0",
     "marked": "^16.0.0",
     "prismjs": "^1.30.0",

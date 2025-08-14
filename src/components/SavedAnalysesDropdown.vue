@@ -3,38 +3,53 @@
     <Button
       class="dropdown-trigger"
       @click="toggleDropdown"
-      :class="{ 'has-analyses': hasAnalyses }"
+      :class="{ 'has-analyses': hasAnalyses || hasWorkspaces }"
     >
-      <Files :size="16"/> {{ t('savedAnalyses.title') }}
-      <span v-if="hasAnalyses" class="analysis-count">({{ savedAnalyses.length }})</span>
+      <Files :size="16"/> {{ currentTab === 'analyses' ? t('savedAnalyses.title') : t('workspace.workspaces') }}
+      <span v-if="currentTab === 'analyses' && hasAnalyses" class="analysis-count">({{ savedAnalyses.length }})</span>
+      <span v-if="currentTab === 'workspaces' && hasWorkspaces" class="analysis-count">({{ workspaces.length }})</span>
       <span class="dropdown-arrow" :class="{ 'open': isOpen }">▼</span>
     </Button>
 
     <transition name="dropdown-fade">
       <div v-if="isOpen" class="dropdown-menu" @click.stop>
         <div class="dropdown-header">
-          <h3>{{ t('savedAnalyses.recentAnalyses') }}</h3>
+          <div class="tab-selector">
+            <Button
+              :class="['tab-btn', { active: currentTab === 'analyses' }]"
+              @click="currentTab = 'analyses'"
+            >
+              {{ t('savedAnalyses.analyses') }}
+            </Button>
+            <Button
+              :class="['tab-btn', { active: currentTab === 'workspaces' }]"
+              @click="currentTab = 'workspaces'"
+            >
+              {{ t('workspace.workspaces') }}
+            </Button>
+          </div>
           <Button
-            v-if="hasAnalyses"
+            v-if="(currentTab === 'analyses' && hasAnalyses) || (currentTab === 'workspaces' && hasWorkspaces)"
             class="clear-all-btn"
             size="small"
             @click="confirmClearAll"
           >
-            {{ t('savedAnalyses.clearAll') }}
+            {{ currentTab === 'analyses' ? t('savedAnalyses.clearAll') : t('workspace.clearAll') }}
           </Button>
         </div>
 
-        <div v-if="!hasAnalyses" class="empty-state">
-          <p>{{ t('savedAnalyses.noAnalyses') }}</p>
-        </div>
-
-        <div v-else class="analyses-list">
-          <div
-            v-for="analysis in recentAnalyses"
-            :key="analysis.id"
-            class="analysis-card"
-            @click="selectAnalysis(analysis)"
-          >
+        <!-- Analyses Tab Content -->
+        <div v-if="currentTab === 'analyses'">
+          <div v-if="!hasAnalyses" class="empty-state">
+            <p>{{ t('savedAnalyses.noAnalyses') }}</p>
+          </div>
+          <div v-else class="analyses-list">
+            <div
+              v-for="analysis in recentAnalyses"
+              :key="analysis.id"
+              class="analysis-card"
+              @click="selectAnalysis(analysis)"
+            >
             <div class="card-header">
               <div class="card-badge">
                 <span class="mode-icon" :class="analysis.mode || 'fact_check'">
@@ -78,12 +93,76 @@
               </div>
             </div>
           </div>
+          
+          <div v-if="savedAnalyses.length > 10" class="show-more">
+            <Button class="show-more-btn" @click="showAllAnalyses">
+              {{ t('savedAnalyses.showMore') }} ({{ savedAnalyses.length - 10 }} {{ t('savedAnalyses.more') }})
+            </Button>
+          </div>
+        </div>
         </div>
 
-        <div v-if="savedAnalyses.length > 10" class="show-more">
-          <Button class="show-more-btn" @click="showAllAnalyses">
-            {{ t('savedAnalyses.showMore') }} ({{ savedAnalyses.length - 10 }} {{ t('savedAnalyses.more') }})
-          </Button>
+        <!-- Workspaces Tab Content -->
+        <div v-if="currentTab === 'workspaces'">
+          <div v-if="!hasWorkspaces" class="empty-state">
+            <p>{{ t('workspace.noWorkspaces') }}</p>
+            <Button 
+              type="primary" 
+              size="small" 
+              @click="createNewWorkspace"
+              class="create-workspace-btn"
+            >
+              {{ t('workspace.createFirst') }}
+            </Button>
+          </div>
+          <div v-else class="workspaces-list">
+            <div
+              v-for="workspace in recentWorkspaces"
+              :key="workspace.id"
+              class="workspace-card"
+              @click="selectWorkspace(workspace)"
+            >
+              <div class="card-header">
+                <div class="card-badge">
+                  <span class="mode-icon">🎨</span>
+                  <span class="mode-text">{{ t('workspace.workspace') }}</span>
+                </div>
+                <Button
+                  class="card-delete-btn"
+                  size="small"
+                  @click.stop="deleteWorkspace(workspace.id)"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div class="card-content">
+                <div class="card-claim">
+                  {{ workspace.name }}
+                </div>
+
+                <div class="workspace-meta">
+                  <div class="workspace-stats">
+                    <span class="stat-item">
+                      💬 {{ workspace.chatHistory?.length || 0 }}
+                    </span>
+                    <span class="stat-item">
+                      📄 {{ workspace.canvasItems?.length || 0 }}
+                    </span>
+                  </div>
+                  <div class="card-date">
+                    {{ formatWorkspaceDate(workspace.updatedAt) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="workspaces.length > 10" class="show-more">
+            <Button class="show-more-btn" @click="showAllWorkspaces">
+              {{ t('workspace.showMore') }} ({{ workspaces.length - 10 }} {{ t('workspace.more') }})
+            </Button>
+          </div>
         </div>
       </div>
     </transition>
@@ -157,14 +236,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Button, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
+import { useWorkspace } from '../composables/useWorkspace'
 import { Files } from 'lucide-vue-next'
 
 const { t } = useI18n()
-const emit = defineEmits(['select-analysis'])
+const router = useRouter()
+const emit = defineEmits(['select-analysis', 'select-workspace'])
 
 const {
   savedAnalyses,
@@ -177,8 +259,19 @@ const {
   getVerdictColor
 } = useSavedAnalyses()
 
+const {
+  getAllWorkspaces,
+  createWorkspace,
+  deleteWorkspace: removeWorkspace
+} = useWorkspace()
+
 const isOpen = ref(false)
 const isModalVisible = ref(false)
+const currentTab = ref('analyses')
+
+const workspaces = computed(() => getAllWorkspaces())
+const hasWorkspaces = computed(() => workspaces.value.length > 0)
+const recentWorkspaces = computed(() => workspaces.value.slice(0, 10))
 
 const toggleDropdown = () => {
   isOpen.value = !isOpen.value
@@ -195,9 +288,59 @@ const selectAnalysis = (analysis) => {
 }
 
 const confirmClearAll = () => {
-  if (confirm(t('savedAnalyses.confirmClearAll'))) {
-    clearAllAnalyses()
-  }
+  const message = currentTab.value === 'analyses' 
+    ? t('savedAnalyses.confirmClearAll')
+    : t('workspace.confirmClearAll')
+  
+  Modal.confirm({
+    title: 'Clear All',
+    content: message,
+    okText: 'Yes, Clear All',
+    okType: 'danger',
+    cancelText: 'Cancel',
+    onOk() {
+      if (currentTab.value === 'analyses') {
+        clearAllAnalyses()
+      } else {
+        workspaces.value.forEach(workspace => removeWorkspace(workspace.id))
+      }
+    }
+  })
+}
+
+const createNewWorkspace = () => {
+  const workspace = createWorkspace()
+  router.push(`/workspace/${workspace.id}`)
+  closeDropdown()
+}
+
+const selectWorkspace = (workspace) => {
+  emit('select-workspace', workspace)
+  router.push(`/workspace/${workspace.id}`)
+  closeDropdown()
+  handleModalClose()
+}
+
+const deleteWorkspace = (workspaceId) => {
+  Modal.confirm({
+    title: 'Delete Workspace',
+    content: t('workspace.confirmDelete'),
+    okText: 'Yes, Delete',
+    okType: 'danger',
+    cancelText: 'Cancel',
+    onOk() {
+      removeWorkspace(workspaceId)
+    }
+  })
+}
+
+const formatWorkspaceDate = (timestamp) => {
+  return new Date(timestamp).toLocaleDateString()
+}
+
+const showAllWorkspaces = () => {
+  isModalVisible.value = true
+  closeDropdown()
 }
 
 const showAllAnalyses = () => {
@@ -312,6 +455,36 @@ onUnmounted(() => {
   max-height: 72px;
 }
 
+.tab-selector {
+  display: flex;
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  color: #666;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-btn:hover {
+  color: #333;
+}
+
 .dropdown-header h3 {
   margin: 0;
   font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
@@ -347,11 +520,57 @@ onUnmounted(() => {
   border: 1px solid #e9ecef;
 }
 
-.analyses-list {
+.analyses-list, .workspaces-list {
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.workspace-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #fa8c16;
+}
+
+.workspace-card:hover {
+  background: #f8f9fa;
+  border-color: #d0d0d0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.workspace-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  max-height: 32px;
+}
+
+.workspace-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-item {
+  font-size: 11px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-height: 32px;
+}
+
+.create-workspace-btn {
+  margin-top: 12px;
 }
 
 .analysis-card {
@@ -375,7 +594,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 5px;
-  max-height: 32px;
+    max-height: 32px;
 
 }
 
@@ -469,7 +688,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  max-height: 32px;
+    max-height: 32px;
+
 }
 
 .card-result {

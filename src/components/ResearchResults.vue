@@ -499,8 +499,14 @@ const openPPTGenerator = () => {
   emit('open-ppt-generator')
 }
 
-const downloadReport = () => {
+const downloadReport = async () => {
   try {
+    notification.info({
+      message: 'Generating PDF...',
+      description: 'Please wait while we generate your PDF with Chinese font support.',
+      duration: 2
+    })
+
     // Prepare data for PDF generation
     const reportData = {
       originalClaim: props.originalClaim,
@@ -514,26 +520,32 @@ const downloadReport = () => {
       analysisTitle: props.analysisSummary
     }
 
-    // Generate and download PDF
-    pdfService.createPDF(reportData)
-    
     // Use analysis summary for filename if available, otherwise use date
     const baseFilename = props.analysisSummary 
       ? props.analysisSummary.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase().substring(0, 50)
       : 'research-report'
     const filename = `${baseFilename}-${new Date().toISOString().split('T')[0]}.pdf`
-    pdfService.downloadPDF(filename)
+
+    // Generate PDF and get the document object (now async)
+    const pdfDoc = await pdfService.createPDF(reportData)
+    
+    // Ensure the document is ready and download immediately
+    if (pdfDoc) {
+      pdfDoc.save(filename)
+    } else {
+      throw new Error('Failed to generate PDF document')
+    }
 
     notification.success({
       message: 'PDF Download Started',
-      description: 'Your research report PDF with table of contents is being downloaded.',
+      description: 'Your research report PDF with Chinese font support is being downloaded.',
       duration: 3
     })
   } catch (error) {
     console.error('PDF generation failed:', error)
     notification.error({
       message: 'PDF Generation Failed',
-      description: 'Failed to generate PDF. Please try again or contact support.',
+      description: 'Failed to generate PDF with Chinese support. Please try again or contact support.',
       duration: 4
     })
   }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
-import { Presentation, Settings, Files } from 'lucide-vue-next'
+import { Presentation, Settings, Files, Folder } from 'lucide-vue-next'
 import { Bug } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router'
 import { Input, Button, Typography, Space, Layout, Upload, notification, Modal, Select, Tooltip } from 'ant-design-vue'
@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { useFactCheck } from '../composables/useFactCheck'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
 import { useSessionRecovery } from '../composables/useSessionRecovery'
+import { useWorkspace } from '../composables/useWorkspace'
 import AnalysisProgress from '../components/Progress2.vue'
 import FactCheckResults from '../components/FactCheckResults.vue'
 import ResearchResults from '../components/ResearchResults.vue'
@@ -263,6 +264,12 @@ const handleShowFeatureIntro = () => {
   delay(() => { showFeatureIntroModal.value = true }, 150)
 }
 
+// Create new workspace and navigate to it
+const createNewWorkspace = () => {
+  const workspace = createWorkspace('New Workspace')
+  router.push(`/workspace/${workspace.id}`)
+}
+
 // Max mode setting (reads from localStorage like in SettingsModal)
 const maxMode = ref(false)
 
@@ -360,6 +367,9 @@ watch(sessionId, (newSessionId, oldSessionId) => {
 
 // Saved analyses integration
 const { saveAnalysis, savedAnalyses } = useSavedAnalyses()
+
+// Workspace integration
+const { createWorkspace } = useWorkspace()
 
 // Get current analysis summary for PDF title
 const currentAnalysisSummary = computed(() => {
@@ -1470,6 +1480,17 @@ const getReportContent = () => {
       </div>
     </a-modal>
   </Layout>
+
+  <!-- Bottom-left Workspace Button -->
+  <button
+    class="workspace-button"
+    @click="createNewWorkspace"
+    aria-label="Create new workspace"
+  >
+    <span class="workspace-icon"><Folder class="ai-icon" :size="16" /></span>
+    <span class="workspace-label">New Workspace</span>
+    <span class="beta-badge">BETA</span>
+  </button>
 
   <!-- Bottom-left Report Bugs Button -->
   <button
@@ -2880,6 +2901,66 @@ const getReportContent = () => {
     padding: 0 12px;
   }
   .bug-label {
+    font-size: 12px;
+  }
+}
+
+/* Workspace Button - positioned above bug report button */
+.workspace-button {
+  position: fixed;
+  bottom: 80px; /* 40px button height + 8px gap + 32px from bottom */
+  left: 32px;
+  z-index: 900;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: #f0f8ff;
+  border: 1px solid #4096ff;
+  color: #1890ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+}
+
+.workspace-button:hover {
+  background: #e6f4ff;
+  border-color: #1677ff;
+  color: #0958d9;
+  transform: translateY(-1px);
+}
+
+.workspace-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.workspace-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.beta-badge {
+  background: #ff4d4f;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-left: 4px;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .workspace-button {
+    bottom: 68px; /* 36px button height + 8px gap + 24px from bottom */
+    left: 24px;
+    height: 36px;
+    padding: 0 12px;
+  }
+  .workspace-label {
     font-size: 12px;
   }
 }

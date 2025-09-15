@@ -12,6 +12,7 @@ import { useWorkspace } from '../composables/useWorkspace'
 import AnalysisProgress from '../components/Progress2.vue'
 import FactCheckResults from '../components/FactCheckResults.vue'
 import ResearchResults from '../components/ResearchResults.vue'
+import DefineResults from '../components/DefineResults.vue'
 import LanguageSelector from '../components/LanguageSelector.vue'
 import SavedAnalysesDropdown from '../components/SavedAnalysesDropdown.vue'
 import ModeSelector from '../components/ModeSelector.vue'
@@ -319,7 +320,7 @@ onUnmounted(() => {
 
 // Watch for mode changes to update document title
 watch(selectedMode, (newMode) => {
-  document.title = newMode === 'fact_check' ? t('app.title') : t('app.researchTitle')
+  document.title = newMode === 'fact_check' ? t('app.title') : (newMode === 'research' ? t('app.researchTitle') : t('app.defineTitle'))
 }, { immediate: true })
 
 // Fact-check integration
@@ -408,6 +409,12 @@ const progressDataByMode = ref({
     hasResults: false
   },
   research: {
+    results: null,
+    originalClaim: null,
+    progress: null,
+    hasResults: false
+  },
+  define: {
     results: null,
     originalClaim: null,
     progress: null,
@@ -556,18 +563,30 @@ const researchExamples = ref([
   "What are the health benefits and risks of the Mediterranean diet?"
 ])
 
+const defineExamples = ref([
+  "Photosynthesis",
+  "Blockchain",
+  "Machine Learning",
+  "Quantum Computing",
+  "Inflation"
+])
+
 const currentExample = ref(examples.value[0])
 let rotationInterval = null
 
 const rotateExample = () => {
-  const activeExamples = selectedMode.value === 'fact_check' ? examples.value : researchExamples.value
+  const activeExamples = selectedMode.value === 'fact_check' 
+    ? examples.value 
+    : (selectedMode.value === 'research' ? researchExamples.value : defineExamples.value)
   currentExampleIndex.value = (currentExampleIndex.value + 1) % activeExamples.length
   currentExample.value = activeExamples[currentExampleIndex.value]
 }
 
 // Watch for mode changes to reset examples and switch context
 watch(selectedMode, (newMode, oldMode) => {
-  const activeExamples = newMode === 'fact_check' ? examples.value : researchExamples.value
+  const activeExamples = newMode === 'fact_check' 
+    ? examples.value 
+    : (newMode === 'research' ? researchExamples.value : defineExamples.value)
   currentExampleIndex.value = 0
   currentExample.value = activeExamples[0]
 
@@ -609,7 +628,7 @@ watch(selectedMode, (newMode, oldMode) => {
         progress.totalSteps = modeData.progress.totalSteps || 0
         progress.completedSteps = modeData.progress.completedSteps || 0
         progress.failedSteps = modeData.progress.failedSteps || 0
-        progress.expectedSteps = modeData.progress.expectedSteps || (newMode === 'research' ? 3 : 4)
+        progress.expectedSteps = modeData.progress.expectedSteps || (newMode === 'research' ? 4 : (newMode === 'define' ? 1 : 4))
         progress.steps = modeData.progress.steps || []
       }
       // Keep progress expanded if we have data to show
@@ -628,7 +647,7 @@ watch(selectedMode, (newMode, oldMode) => {
       progress.totalSteps = 0
       progress.completedSteps = 0
       progress.failedSteps = 0
-      progress.expectedSteps = newMode === 'research' ? 3 : 4
+      progress.expectedSteps = newMode === 'research' ? 4 : (newMode === 'define' ? 1 : 4)
       progress.steps = []
     }
   }
@@ -846,7 +865,7 @@ watch([results, originalClaim], async ([newResults, newOriginalClaim]) => {
         failedSteps: progress.failedSteps,
         expectedSteps: progress.expectedSteps,
         steps: [...progress.steps]
-      }, sessionId.value)
+      }, selectedMode.value === 'define' ? null : sessionId.value)
       console.log('✅ Analysis saved successfully with ID:', analysisId)
 
       // Navigate to the analysis URL if we're not already there and not on a specific UUID page
@@ -988,6 +1007,12 @@ const clearAllModeData = () => {
       originalClaim: null,
       progress: null,
       hasResults: false
+    },
+    define: {
+      results: null,
+      originalClaim: null,
+      progress: null,
+      hasResults: false
     }
   }
 }
@@ -1082,11 +1107,11 @@ const getReportContent = () => {
       <div class="main-container">
         <div class="hero-section">
           <Title level="1" class="main-title">
-            {{ selectedMode === 'fact_check' ? t('app.title') : t('app.researchTitle') }}
+            {{ selectedMode === 'fact_check' ? t('app.title') : (selectedMode === 'research' ? t('app.researchTitle') : t('app.defineTitle')) }}
             <span v-if="maxMode" class="max-mode-indicator">MAX</span>
           </Title>
           <Paragraph class="subtitle">
-            {{ selectedMode === 'fact_check' ? t('app.subtitle') : t('app.researchSubtitle') }}
+            {{ selectedMode === 'fact_check' ? t('app.subtitle') : (selectedMode === 'research' ? t('app.researchSubtitle') : t('app.defineSubtitle')) }}
           </Paragraph>
         </div>
 
@@ -1103,13 +1128,13 @@ const getReportContent = () => {
             >
               <Input.TextArea
                 v-model:value="inputText"
-                :placeholder="selectedMode === 'fact_check' ? t('app.inputPlaceholder') : t('app.researchPlaceholder')"
+                :placeholder="selectedMode === 'fact_check' ? t('app.inputPlaceholder') : (selectedMode === 'research' ? t('app.researchPlaceholder') : t('app.definePlaceholder'))"
                 :rows="6"
                 class="main-input"
                 @keypress="handleKeyPress"
                 @paste="handlePaste"
               />
-              <div class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
+              <div v-if="selectedMode !== 'define'" class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
                 <Presentation class="ai-icon" :size="16" />
                 <span class="ai-text">AI PPT</span>
                 <span class="ai-text" :class="{ enabled: selectedMode === 'research', disabled: selectedMode === 'fact_check' }">
@@ -1243,6 +1268,12 @@ const getReportContent = () => {
             :analysisSummary="currentAnalysisSummary"
             @headings-extracted="handleHeadingsExtracted"
           />
+          <DefineResults
+            v-else-if="selectedMode === 'define'"
+            :results="results"
+            :originalClaim="originalClaim"
+            @headings-extracted="handleHeadingsExtracted"
+          />
           <ResearchResults
             v-else
             :results="results"
@@ -1337,7 +1368,7 @@ const getReportContent = () => {
 
     <!-- Mobile AI Tools Button -->
     <Transition name="ai-tools">
-      <div v-if="showAIToolsMenu" class="ai-tools-container">
+      <div v-if="showAIToolsMenu && selectedMode !== 'define'" class="ai-tools-container">
         <!-- AI Tools Popup -->
         <Transition name="ai-tools-popup">
           <div v-if="isAIToolsPopupOpen" class="ai-tools-popup">

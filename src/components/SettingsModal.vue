@@ -87,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
 import { usePPTGenerations } from '../composables/usePPTGenerations'
 import LanguageSelector from './LanguageSelector.vue'
@@ -107,6 +107,8 @@ const { savedAnalyses } = useSavedAnalyses()
 const { getWeeklyPPTGenerations } = usePPTGenerations()
 
 // Load max mode setting from localStorage on mount
+let storageHandler = null
+
 onMounted(() => {
   try {
     const saved = localStorage.getItem('settings-max-mode')
@@ -116,6 +118,18 @@ onMounted(() => {
   } catch (error) {
     console.warn('Failed to load max mode setting:', error)
   }
+  // Listen for external changes (e.g., ModeSelector toggle)
+  storageHandler = () => {
+    try {
+      const saved = localStorage.getItem('settings-max-mode')
+      if (saved !== null) {
+        maxMode.value = JSON.parse(saved)
+      }
+    } catch {
+      // ignore
+    }
+  }
+  window.addEventListener('storage', storageHandler)
 })
 
 // Watch for changes and save to localStorage
@@ -133,6 +147,10 @@ const toggleMaxMode = () => {
   // For now, just console log the change - no actual functionality
   console.log('Max mode toggled:', maxMode.value ? 'enabled' : 'disabled')
 }
+
+onUnmounted(() => {
+  if (storageHandler) window.removeEventListener('storage', storageHandler)
+})
 
 // Calculate weekly stats
 const weeklyStats = computed(() => {

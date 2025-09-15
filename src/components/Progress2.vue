@@ -26,7 +26,7 @@
           </div>
         </div>
         
-        <div class="steps-container">
+        <div class="steps-container" v-if="mode !== 'define'">
           <a-steps 
             :current="getCurrentStepIndex" 
             :status="getStepsStatus"
@@ -63,7 +63,7 @@
           </a-steps>
         </div>
         
-        <div class="steps-summary" v-if="(progress?.expectedSteps > 0) || hasResults">
+        <div class="steps-summary" v-if="mode !== 'define' && ((progress?.expectedSteps > 0) || hasResults)">
           <div class="steps-count" v-if="progress?.expectedSteps > 0">
             {{ t('progress.ui.stepOf', { 
               current: progress.stepNumber || progress.completedSteps + 1, 
@@ -264,6 +264,7 @@ const formatElapsedTime = (ms) => {
 }
 
 // Get progress title based on mode and state
+// Keep the original "Thinking Process" text even for define mode
 const getProgressTitle = () => {
   return props.mode === 'research' 
     ? t('progress.titles.researchingTopic') 

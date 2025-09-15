@@ -3,10 +3,13 @@
     "website": "itLooksLegit.com",
     "title": "It Looks Legit",
     "researchTitle": "Shallow Research",
+    "defineTitle": "Quick Explainer",
     "subtitle": "...or is it?",
     "researchSubtitle": "Perform research on topics and questions",
+    "defineSubtitle": "Type a term to get a quick explanation",
     "inputPlaceholder": "Paste your news article, social media post, or claim here to fact-check... You can also drag & drop or paste images directly here!",
     "researchPlaceholder": "Enter your research question or topic here... e.g., 'What are the benefits of renewable energy?' or 'How does AI impact healthcare?'",
+    "definePlaceholder": "Type a term or concept to explain...",
     "analyzing": "Analyzing...",
     "factCheck": "Fact-Check",
     "research": "Research",
@@ -178,8 +181,11 @@
   "mode": {
     "factCheck": "Fact Check",
     "research": "Research",
+    "define": "Explainer",
+    "moreTools": "More",
     "factCheckDescription": "Verify the accuracy of specific claims with evidence-based analysis (2-4 minutes est.)",
-    "researchDescription": "Get comprehensive research reports on topics and questions (3-5 minutes est.)"
+    "researchDescription": "Get comprehensive research reports on topics and questions (3-5 minutes est.)",
+    "defineDescription": "Quickly explain a term or concept in one step (few seconds)."
   },
   "research": {
     "title": "Research Report",
@@ -211,7 +217,16 @@
     "research_gathering": "Gathering research data...",
     "source_analysis": "Analyzing sources...",
     "synthesis": "Synthesizing information...",
-    "report_generation": "Generating research report..."
+    "report_generation": "Generating research report...",
+    "definition": "Generating explanation..."
+  },
+  "define": {
+    "title": "Explanation",
+    "term": "Topic",
+    "definition": "Explanation",
+    "examples": "Examples",
+    "notes": "Notes",
+    "placeholder": "Enter a term above to get a quick explanation."
   },
   "progress": {
     "titles": {

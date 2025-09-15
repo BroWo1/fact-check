@@ -43,13 +43,17 @@ export function useFactCheck() {
     'deeper_exploration': t('loading.deeper_exploration'),
     'source_credibility_evaluation': t('loading.source_credibility_evaluation'),
     'final_conclusion': t('loading.final_conclusion'),
-    
+
     // Research states
     'topic_analysis': t('loading.topic_analysis'),
     'research_gathering': t('loading.research_gathering'),
     'source_analysis': t('loading.source_analysis'),
     'synthesis': t('loading.synthesis'),
-    'report_generation': t('loading.report_generation')
+    'report_generation': t('loading.report_generation'),
+
+    // Define mode
+    'definition': t('loading.definition'),
+    'define_term': t('loading.definition')
   })
 
   let pollingInterval = null
@@ -471,9 +475,9 @@ export function useFactCheck() {
       error.value = null
       originalClaim.value = userInput
       progress.currentStep = getLoadingStates().submitting
-      
+
       // Set expected steps based on mode
-      progress.expectedSteps = mode === 'research' ? 4 : 4 // Both modes have 4 steps
+      progress.expectedSteps = mode === 'research' ? 4 : (mode === 'define' ? 1 : 4)
 
       // Create fact-check session
       const response = await factCheckService.createSession(userInput, uploadedFile, mode, style)

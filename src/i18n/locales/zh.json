@@ -3,10 +3,13 @@
     "website": "itLooksLegit.com",
     "title": "言论鉴定",
     "researchTitle": "浅度研究",
+    "defineTitle": "快速讲解",
     "subtitle": "鉴定为真？假？",
     "researchSubtitle": "对主题和问题进行研究报告",
+    "defineSubtitle": "输入一个术语，快速获得简明讲解",
     "inputPlaceholder": "在此处粘贴您的新闻文章、社交媒体帖子或声明进行事实核查...您也可以直接拖放或粘贴图片！",
     "researchPlaceholder": "在此输入您的研究问题或主题...例如，'可再生能源的好处是什么？'或'人工智能如何影响医疗保健？'",
+    "definePlaceholder": "输入要讲解的术语或概念...",
     "analyzing": "分析中...",
     "factCheck": "开始鉴定",
     "research": "研究",
@@ -66,8 +69,11 @@
   "mode": {
     "factCheck": "事实鉴定",
     "research": "研究报告",
+    "define": "讲解",
+    "moreTools": "更多",
     "factCheckDescription": "通过基于证据的分析验证特定言论的准确性 (预计2-4分钟)",
-    "researchDescription": "获取关于主题和问题的综合研究报告 (预计3-5分钟)"
+    "researchDescription": "获取关于主题和问题的综合研究报告 (预计3-5分钟)",
+    "defineDescription": "一步快速给出术语/概念的简明讲解（数秒）。"
   },
   "research": {
     "title": "研究报告",
@@ -99,7 +105,16 @@
     "research_gathering": "正在收集研究数据...",
     "source_analysis": "正在分析来源...",
     "synthesis": "正在综合信息...",
-    "report_generation": "正在生成研究报告..."
+    "report_generation": "正在生成研究报告...",
+    "definition": "正在生成讲解..."
+  },
+  "define": {
+    "title": "讲解",
+    "term": "主题",
+    "definition": "讲解",
+    "examples": "示例",
+    "notes": "备注",
+    "placeholder": "在上方输入一个术语以获取快速讲解。"
   },
   "progress": {
     "titles": {

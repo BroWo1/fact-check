@@ -34,7 +34,7 @@
       <span class="status-text">Connecting to live updates...</span>
     </div>
     
-    <div class="steps-summary" v-if="progress.expectedSteps > 0">
+    <div class="steps-summary" v-if="progress.expectedSteps > 0 && mode !== 'define'">
       <div class="steps-count">
         Step {{ progress.stepNumber || progress.completedSteps + 1 }} of {{ progress.expectedSteps }}
         <span v-if="progress.completedSteps > 0">
@@ -47,7 +47,7 @@
     </div>
     
     <!-- Detailed steps for debugging/transparency -->
-    <div class="steps-detail" v-if="showDetails && progress.steps.length > 0">
+    <div class="steps-detail" v-if="showDetails && progress.steps.length > 0 && mode !== 'define'">
       <div class="steps-list">
         <div 
           v-for="step in progress.steps" 
@@ -73,7 +73,7 @@
     </div>
     
     <button 
-      v-if="progress.steps.length > 0" 
+      v-if="progress.steps.length > 0 && mode !== 'define'" 
       @click="showDetails = !showDetails"
       class="toggle-details"
     >
@@ -89,7 +89,11 @@ const props = defineProps({
   isLoading: Boolean,
   progress: Object,
   isConnected: Boolean,
-  usePolling: Boolean
+  usePolling: Boolean,
+  mode: {
+    type: String,
+    default: 'fact_check'
+  }
 })
 
 const showDetails = ref(false)
@@ -101,7 +105,9 @@ const stepIcons = {
   'source_credibility_evaluation': '⚖️',
   'final_conclusion': '📋',
   'submitting': '📤',
-  'analyzing': '🧠'
+  'analyzing': '🧠',
+  'definition': '🧠',
+  'define_term': '🧠'
 }
 
 const stepNames = {
@@ -110,7 +116,9 @@ const stepNames = {
   'source_credibility_evaluation': 'Source Evaluation',
   'final_conclusion': 'Final Conclusion',
   'submitting': 'Submitting Request',
-  'analyzing': 'Analyzing Content'
+  'analyzing': 'Analyzing Content',
+  'definition': 'Generating Definition',
+  'define_term': 'Generating Definition'
 }
 
 const getCurrentPhase = () => {

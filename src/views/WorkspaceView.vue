@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button, notification } from 'ant-design-vue'
 import { Settings } from 'lucide-vue-next'
@@ -129,7 +129,9 @@ const {
   addCanvasItem,
   removeCanvasItem,
   updateCanvasItem,
-  addChatMessage
+  addChatMessage,
+  getStorageUsage,
+  cleanupOldWorkspaces
 } = useWorkspace()
 
 // Reactive state for panel sizing
@@ -146,6 +148,10 @@ const resizeHandle = ref(null)
 const handleChatMessage = (message) => {
   addChatMessage(message)
   saveWorkspace()
+  // Check storage after adding chat messages (but only occasionally to avoid spam)
+  if (Math.random() < 0.1) { // 10% chance to check
+    checkStorageQuota()
+  }
 }
 
 const handleEnlargeItem = (item) => {
@@ -155,6 +161,7 @@ const handleEnlargeItem = (item) => {
 const handleAddCanvas = (canvasData) => {
   addCanvasItem(canvasData)
   saveWorkspace()
+  checkStorageQuota()
 }
 
 const handleRemoveCanvas = (canvasId) => {
@@ -172,6 +179,35 @@ const handleUpdateWorkspaceName = (newName) => {
     currentWorkspace.value.name = newName
     currentWorkspace.value.updatedAt = new Date().toISOString()
     saveWorkspace()
+    checkStorageQuota()
+  }
+}
+
+// Monitor storage usage and show warnings
+const checkStorageQuota = () => {
+  const usage = getStorageUsage()
+  if (usage) {
+    if (parseFloat(usage.quotaUsagePercent) > 80) {
+      notification.warning({
+        message: 'Storage Almost Full',
+        description: `Workspace storage is ${usage.quotaUsagePercent}% full. Consider cleaning up old workspaces.`,
+        duration: 6,
+        btn: h(Button, {
+          type: 'primary',
+          size: 'small',
+          onClick: () => {
+            const result = cleanupOldWorkspaces(5)
+            if (result) {
+              notification.success({
+                message: 'Storage Cleaned',
+                description: `Removed ${result.removed} old workspaces. Kept ${result.kept} recent ones.`,
+                duration: 4
+              })
+            }
+          }
+        }, 'Clean Up')
+      })
+    }
   }
 }
 

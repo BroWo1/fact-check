@@ -53,10 +53,10 @@
             <div class="card-header">
               <div class="card-badge">
                 <span class="mode-icon" :class="analysis.mode || 'fact_check'">
-                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : '📚' }}
+                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : ((analysis.mode || 'fact_check') === 'research' ? '📚' : '🧠') }}
                 </span>
                 <span class="mode-text">
-                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : 'Research' }}
+                  {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : ((analysis.mode || 'fact_check') === 'research' ? 'Research' : 'Define') }}
                 </span>
               </div>
               <Button
@@ -191,10 +191,10 @@
           <div class="card-header">
             <div class="card-badge">
               <span class="mode-icon" :class="analysis.mode || 'fact_check'">
-                {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : '📚' }}
+                {{ (analysis.mode || 'fact_check') === 'fact_check' ? '🔍' : ((analysis.mode || 'fact_check') === 'research' ? '📚' : '🧠') }}
               </span>
               <span class="mode-text">
-                {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : 'Research' }}
+                {{ (analysis.mode || 'fact_check') === 'fact_check' ? 'Fact Check' : ((analysis.mode || 'fact_check') === 'research' ? 'Research' : 'Define') }}
               </span>
             </div>
             <Button

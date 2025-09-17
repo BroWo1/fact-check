@@ -131,6 +131,9 @@ function handleSelectSavedAnalysis(analysis) {
   uploadedFile.value = null
   imagePreview.value = ''
 
+  // Mark that the current view originated from a saved analysis
+  loadedFromSavedAnalysis.value = true
+
   // Navigate to the analysis URL (only if not already there)
   if (route.params.uuid !== analysis.id) {
     navigateToAnalysis(analysis.id)
@@ -396,6 +399,10 @@ const testSave = () => {
 
 // Track if we're currently loading a saved analysis to prevent clearing results
 const isLoadingSavedAnalysis = ref(false)
+// When viewing a previously saved analysis, dock the input at the bottom
+const loadedFromSavedAnalysis = ref(false)
+// Hide mode selector when viewing a previously saved analysis or while it's loading
+const showModeSelector = computed(() => !loadedFromSavedAnalysis.value && !isLoadingSavedAnalysis.value)
 
 // Track if we're currently recovering a session to prevent clearing results
 const isRecoveringSession = ref(false)
@@ -428,7 +435,7 @@ const progressCollapsed = ref(true)  // Default to collapsed for auto-hide behav
 const hasAttemptedUuidLoad = ref(false)
 
 // Mobile detection
-const isMobile = ref(false)
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 1200 : false)
 
 // Mobile AI tools menu
 const showAIToolsMenu = ref(false)
@@ -573,6 +580,8 @@ const defineExamples = ref([
 
 const currentExample = ref(examples.value[0])
 let rotationInterval = null
+
+// Suggestions removed per request
 
 const rotateExample = () => {
   const activeExamples = selectedMode.value === 'fact_check' 
@@ -814,6 +823,8 @@ const triggerFileUpload = () => {
 const handleSubmit = async () => {
   if (!inputText.value.trim() && !uploadedFile.value) return
   try {
+    // Treat new submission as non-saved context
+    loadedFromSavedAnalysis.value = false
     // Clear stored data for current mode when starting new analysis
     progressDataByMode.value[selectedMode.value] = {
       results: null,
@@ -893,6 +904,7 @@ const handleNewAnalysis = () => {
   inputText.value = ''
   uploadedFile.value = null
   imagePreview.value = ''
+  loadedFromSavedAnalysis.value = false
 
   // Clear the mode data cache to prevent reloading old analyses
   clearAllModeData()
@@ -1115,111 +1127,128 @@ const getReportContent = () => {
           </Paragraph>
         </div>
 
-        <ModeSelector v-model:mode="selectedMode" />
+        <ModeSelector v-if="showModeSelector" v-model:mode="selectedMode" />
 
-        <div class="input-section">
+        <div class="input-section" :class="{ 'fixed-bottom': loadedFromSavedAnalysis }">
           <Space direction="vertical" size="large" class="input-container">
-            <div
-              class="input-wrapper"
-              :class="{ 'drag-over': isDragOver }"
-              @dragover="handleDragOver"
-              @dragleave="handleDragLeave"
-              @drop="handleDrop"
-            >
-              <Input.TextArea
-                v-model:value="inputText"
-                :placeholder="selectedMode === 'fact_check' ? t('app.inputPlaceholder') : (selectedMode === 'research' ? t('app.researchPlaceholder') : t('app.definePlaceholder'))"
-                :rows="6"
-                class="main-input"
-                @keypress="handleKeyPress"
-                @paste="handlePaste"
-              />
-              <div v-if="selectedMode !== 'define'" class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
-                <Presentation class="ai-icon" :size="16" />
-                <span class="ai-text">AI PPT</span>
-                <span class="ai-text" :class="{ enabled: selectedMode === 'research', disabled: selectedMode === 'fact_check' }">
-                  {{ selectedMode === 'research' ? t('aiPPT.enabled') : t('aiPPT.disabled') }}
-                </span>
-              </div>
-              <div class="input-controls">
-                <!-- Show upload button for fact-check mode -->
-                <template v-if="selectedMode === 'fact_check'">
-                  <input
-                    type="file"
-                    id="photo-upload"
-                    accept="image/*"
-                    @change="handleFileUpload"
-                    style="display: none;"
-                  />
-                  <Button
-                    class="upload-button"
-                    @click="triggerFileUpload"
-                    size="small"
-                  >
-                    📷 {{ t('app.uploadButton') }}
-                  </Button>
-                </template>
+            <!-- Local mask under the card only (not full width) -->
+            <div v-if="loadedFromSavedAnalysis" class="ppx-mask" aria-hidden="true"></div>
+            <!-- Perplexity-style card wrapper -->
+            <div class="ppx-card">
+              <div
+                class="input-wrapper ppx-top"
+                :class="{ 'drag-over': isDragOver }"
+                @dragover="handleDragOver"
+                @dragleave="handleDragLeave"
+                @drop="handleDrop"
+              >
+                <Input.TextArea
+                  v-model:value="inputText"
+                  :placeholder="selectedMode === 'fact_check' ? t('app.inputPlaceholder') : (selectedMode === 'research' ? t('app.researchPlaceholder') : t('app.definePlaceholder'))"
+                  :rows="loadedFromSavedAnalysis ? 3 : 6"
+                  class="main-input ppx-input"
+                  @keypress="handleKeyPress"
+                  @paste="handlePaste"
+                />
+                <!-- Bottom control bar inside text box -->
+                <div class="input-bottom-bar">
+                  <div class="left-controls">
+                    <div v-if="!loadedFromSavedAnalysis && selectedMode !== 'define'" class="ai-ppt-indicator" :class="{ 'fact-check-mode': selectedMode === 'fact_check' }">
+                      <Presentation class="ai-icon" :size="16" />
+                      <span class="ai-text">AI PPT</span>
+                      <span class="ai-text" :class="{ enabled: selectedMode === 'research', disabled: selectedMode === 'fact_check' }">
+                        {{ selectedMode === 'research' ? t('aiPPT.enabled') : t('aiPPT.disabled') }}
+                      </span>
+                    </div>
+                    <div class="input-controls">
+                      <!-- Show upload button for fact-check mode -->
+                      <template v-if="selectedMode === 'fact_check'">
+                        <input
+                          type="file"
+                          id="photo-upload"
+                          accept="image/*"
+                          @change="handleFileUpload"
+                          style="display: none;"
+                        />
+                        <Button
+                          class="upload-button"
+                          @click="triggerFileUpload"
+                          size="small"
+                        >
+                          📷 {{ t('app.uploadButton') }}
+                        </Button>
+                      </template>
 
-                <!-- Show style selector for research mode -->
-                <template v-if="selectedMode === 'research'">
-                  <div class="style-selector">
-                    <label class="style-label">Style:</label>
-                    <Select
-                      v-model:value="selectedStyle"
-                      class="style-select"
-                      size="small"
-                    >
-                      <Select.Option value="professional">
-                        <Tooltip title="Formal, detailed analysis with comprehensive citations and structured presentation suitable for academic or business contexts" placement="right">
-                          <span>📊 Professional</span>
-                        </Tooltip>
-                      </Select.Option>
-                      <Select.Option value="informational">
-                        <Tooltip title="Clear, accessible explanations with balanced depth and readability for general audiences" placement="right">
-                          <span>📚 Informational</span>
-                        </Tooltip>
-                      </Select.Option>
-                      <Select.Option value="concise">
-                        <Tooltip title="Brief, focused summary highlighting key points and essential findings" placement="right">
-                          <span>⚡ Concise</span>
-                        </Tooltip>
-                      </Select.Option>
-                    </Select>
+                      <!-- Show style selector for research mode -->
+                      <template v-if="!loadedFromSavedAnalysis && selectedMode === 'research'">
+                        <div class="style-selector">
+                          <label class="style-label">Style:</label>
+                          <Select
+                            v-model:value="selectedStyle"
+                            class="style-select"
+                            size="small"
+                          >
+                            <Select.Option value="professional">
+                              <Tooltip title="Formal, detailed analysis with comprehensive citations and structured presentation suitable for academic or business contexts" placement="right">
+                                <span>📊 Professional</span>
+                              </Tooltip>
+                            </Select.Option>
+                            <Select.Option value="informational">
+                              <Tooltip title="Clear, accessible explanations with balanced depth and readability for general audiences" placement="right">
+                                <span>📚 Informational</span>
+                              </Tooltip>
+                            </Select.Option>
+                            <Select.Option value="concise">
+                              <Tooltip title="Brief, focused summary highlighting key points and essential findings" placement="right">
+                                <span>⚡ Concise</span>
+                              </Tooltip>
+                            </Select.Option>
+                          </Select>
+                        </div>
+                      </template>
+                    </div>
                   </div>
-                </template>
-              </div>
 
-              <div v-if="isDragOver" class="drag-overlay">
-                <div class="drag-message">
-                  📷 Drop your image here
-                </div>
-              </div>
-
-              <div v-if="imagePreview" class="image-preview">
-                <div class="preview-header">
-                  <span class="preview-title">Uploaded Image:</span>
+                  <!-- Square send button on the right -->
                   <Button
-                    class="remove-button"
-                    size="small"
-                    @click="removeImage"
+                    type="primary"
+                    class="submit-square"
+                    :loading="isLoading"
+                    :disabled="loadedFromSavedAnalysis || (!inputText.trim() && !uploadedFile)"
+                    :title="loadedFromSavedAnalysis ? 'Disabled when viewing saved analysis' : ''"
+                    @click="handleSubmit"
+                    aria-label="Send"
                   >
-                    ✕
+                    <span v-if="!isLoading">→</span>
+                    <span v-else>…</span>
                   </Button>
                 </div>
-                <img :src="imagePreview" alt="Uploaded preview" class="preview-image" />
+
+                <div v-if="isDragOver" class="drag-overlay">
+                  <div class="drag-message">
+                    📷 Drop your image here
+                  </div>
+                </div>
+
+                <div v-if="imagePreview" class="image-preview">
+                  <div class="preview-header">
+                    <span class="preview-title">Uploaded Image:</span>
+                    <Button
+                      class="remove-button"
+                      size="small"
+                      @click="removeImage"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                  <img :src="imagePreview" alt="Uploaded preview" class="preview-image" />
+                </div>
               </div>
+
+              <!-- Suggestions removed -->
             </div>
 
-            <Button
-              type="primary"
-              size="large"
-              class="submit-button"
-              :loading="isLoading"
-              :disabled="!inputText.trim() && !uploadedFile"
-              @click="handleSubmit"
-            >
-              {{ isLoading ? t('app.analyzing') : (selectedMode === 'fact_check' ? t('app.factCheck') : t('app.research')) }}
-            </Button>
+            <!-- Submit button moved inside input box as square send -->
 
             <Button
               v-if="isLoading"
@@ -1251,7 +1280,7 @@ const getReportContent = () => {
         </div>
       </div>
 
-      <div v-if="results" class="results-layout-wrapper" :class="{ 'has-toc': showToc, 'has-ai-ask': showToc }">
+      <div v-if="results" class="results-layout-wrapper" :class="{ 'has-toc': showToc, 'has-ai-ask': showToc, 'hidden-when-docked': loadedFromSavedAnalysis }">
         <div v-if="showToc" class="toc-wrapper" :class="{ 'is-collapsed': isTocCollapsed }">
           <TableOfContents
             :headings="tocHeadings"
@@ -1512,8 +1541,9 @@ const getReportContent = () => {
     </a-modal>
   </Layout>
 
-  <!-- Bottom-left Workspace Button -->
+  <!-- Bottom-left Workspace Button (hidden on mobile) -->
   <button
+    v-if="!isMobile"
     class="workspace-button"
     @click="createNewWorkspace"
     aria-label="Create new workspace"
@@ -1523,8 +1553,9 @@ const getReportContent = () => {
     <span class="beta-badge">BETA</span>
   </button>
 
-  <!-- Bottom-left Report Bugs Button -->
+  <!-- Bottom-left Report Bugs Button (hidden on mobile) -->
   <button
+    v-if="!isMobile"
     class="bug-report-button"
     @click="showBugReportModal = true"
     aria-label="Report bugs"
@@ -1534,1600 +1565,6 @@ const getReportContent = () => {
   </button>
 </template>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-
-@font-face {
-  font-family: 'LXGW Neo ZhiSong Plus';
-  src: url('../assets/fonts/LXGWNeoZhiSongPlus.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-.main-layout {
-  min-height: 100vh;
-  background: #ffffff;
-}
-
-.footer-text {
-  color: #666666;
-}
-
-.header {
-  background: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 0;
-  height: 80px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  transition: height 0.25s ease-out;
-}
-
-.header.mobile-expanded {
-  height: 140px;
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 100%;
-  display: grid;
-  grid-template-rows: 80px 1fr;
-  align-items: center;
-}
-
-.header-row-primary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 80px;
-}
-
-.header-row-secondary {
-  display: none; /* Hidden on desktop by default */
-}
-
-.header-row-secondary .secondary-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 12px 0;
-  min-height: 0;
-  opacity: 1;
-  filter: blur(0);
-  transition: padding 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
-  position: relative;
-  z-index: 1001;
-}
-
-/* Allow dropdowns in mobile header to extend beyond header boundaries */
-.header.mobile-expanded .header-row-secondary {
-  overflow: visible;
-}
-
-.header.mobile-expanded .header-row-secondary .secondary-content {
-  overflow: visible;
-}
-
-/* Ensure dropdown components in mobile header have proper z-index and positioning */
-@media (max-width: 768px) {
-  .header.mobile-expanded .saved-analyses-dropdown {
-    position: static;
-  }
-
-  .header.mobile-expanded .saved-analyses-dropdown .dropdown-menu {
-    position: fixed;
-    top: auto;
-    right: 16px;
-    left: 16px;
-    z-index: 1100;
-    transform: translateY(8px);
-    min-width: auto;
-    max-width: none;
-    width: auto;
-    margin: 0;
-  }
-
-  /* Ensure the header doesn't clip dropdowns when expanded */
-  .header.mobile-expanded {
-    overflow: visible;
-  }
-
-  .header.mobile-expanded .header-content {
-    overflow: visible;
-  }
-
-  .header.mobile-expanded .header-row-secondary {
-    overflow: visible;
-    z-index: 1050;
-  }
-
-  .header.mobile-expanded .header-row-secondary .secondary-content {
-    overflow: visible;
-    z-index: 1050;
-  }
-}
-
-.logo-section {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 8px;
-  border-radius: 8px;
-  margin-left: -8px;
-}
-
-.logo-section:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.logo-section:active {
-  transform: translateY(0);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: relative;
-}
-
-.header-menu-items-wrapper-desktop {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.settings-button {
-  height: 32px !important;
-  border-radius: 6px !important;
-  background: #f8f9fa !important;
-  border: 1px solid #d9d9d9 !important;
-  color: #666666 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: all 0.2s ease !important;
-  padding: 0 12px !important;
-  min-width: auto !important;
-  gap: 6px !important;
-}
-
-.settings-button:hover {
-  background: #e9ecef !important;
-  border-color: #757575 !important;
-  color: #495057 !important;
-}
-
-.settings-icon {
-  font-size: 14px;
-}
-
-.settings-label {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.mobile-menu-button {
-    display: none;
-}
-
-.logo-text {
-  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif !important;
-  color: #000000 !important;
-  margin: 0 !important;
-  font-weight: 700 !important;
-  font-size: 28px !important;
-  letter-spacing: -0.5px;
-}
-
-.content {
-  padding: 0;
-}
-
-.main-container {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 60px 24px 0;
-  text-align: center;
-}
-/* Reduce top padding for subsequent containers */
-.main-container:not(:first-child) {
-    padding-top: 0;
-}
-
-.results-layout-wrapper {
-    width: 100%;
-    display: grid;
-    /* Centered report column by default */
-    grid-template-columns: [full-start] 1fr [main-start] minmax(0, 700px) [main-end] 1fr [full-end];
-    grid-template-areas: ". report .";
-    margin-top: 32px;
-    padding: 0 24px;
-    box-sizing: border-box;
-}
-.results-layout-wrapper.has-toc {
-    grid-template-columns: 1fr minmax(0, 700px) 1fr;
-    grid-template-areas: "left-gutter report right-gutter";
-    gap: 40px;
-}
-
-.results-layout-wrapper.has-ai-ask {
-    grid-template-columns: 260px 1fr 260px;
-    grid-template-areas: "toc-area report ai-ask-area";
-    gap: 40px;
-    max-width: 1400px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.results-layout-wrapper.has-ai-ask .results-content-area {
-    max-width: 700px;
-    margin: 0 auto;
-    justify-self: center;
-}
-
-.toc-wrapper {
-    grid-area: left-gutter;
-    justify-self: end;
-}
-
-.results-layout-wrapper.has-ai-ask .toc-wrapper {
-    grid-area: toc-area;
-    justify-self: start;
-}
-
-.ai-ask-wrapper {
-    grid-area: ai-ask-area;
-    justify-self: start;
-    display: flex;
-    flex-direction: column;
-    gap: 20px; /* Increased gap to prevent overlap */
-}
-
-.results-content-area {
-    grid-area: report;
-    min-width: 0; /* Prevents grid blowout */
-    text-align: left;
-}
-
-
-.hero-section {
-  margin-bottom: 40px;
-}
-
-.examples-section {
-  margin-bottom: 20px;
-}
-
-.examples-title {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  color: #666666 !important;
-  margin-bottom: 12px !important;
-  font-weight: 500 !important;
-}
-
-.rotating-example {
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-.example-card.rotating {
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: left;
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-.example-card.rotating:hover {
-  background: #f5f5f5;
-  border-color: #d9d9d9;
-  transform: translateY(-1px);
-}
-
-.example-text {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
-  color: #555555;
-  line-height: 1.3;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0.6;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.main-title {
-  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 48px !important;
-  font-weight: 700 !important;
-  color: #000000 !important;
-  margin-bottom: 16px !important;
-  letter-spacing: -1px;
-  line-height: 1.2;
-  position: relative;
-  display: inline-block;
-  padding: 0 52px;
-}
-
-
-.max-mode-indicator {
-  position: absolute;
-  bottom: 8px;
-  right: 0;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 5px;
-  border: 1px solid #757575;
-  font-family: 'DM Sans', 'LXGW WenKai', serif;
-  letter-spacing: 0.5px;
-  transition: all 0.2s ease;
-    background: #e9ecef;
-  color: #495057;
-}
-
-.subtitle {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 20px !important;
-  color: #666666 !important;
-  max-width: 600px;
-  margin: 0 auto !important;
-  line-height: 1.6;
-}
-
-.input-section {
-  margin-bottom: 30px;
-}
-
-.input-container {
-  width: 100%;
-}
-
-.input-wrapper {
-  position: relative;
-  width: 100%;
-  transition: all 0.3s ease;
-}
-
-.input-wrapper.drag-over {
-  transform: scale(1.02);
-}
-
-.drag-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.05);
-  border: 2px dashed #000000;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.drag-message {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 18px;
-  color: #000000;
-  font-weight: 600;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 16px 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.ai-ppt-indicator {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: #ff8c00;
-  transition: all 0.2s ease;
-  pointer-events: none;
-}
-
-.ai-ppt-indicator.fact-check-mode {
-  color: #999999;
-}
-
-.ai-ppt-indicator.fact-check-mode .ai-icon {
-  opacity: 0.6;
-}
-
-.ai-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.ai-text {
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-.input-controls {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  z-index: 10;
-}
-
-.upload-button,
-.style-selector {
-  height: auto;
-  padding: 4px 12px;
-  font-size: 14px;
-  border-radius: 6px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  color: #666666;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  transition: all 0.2s ease;
-}
-
-.upload-button:hover,
-.style-selector:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
-  color: #495057;
-}
-
-
-.upload-button:hover {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-  color: #495057 !important;
-}
-
-.style-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 4px 12px;
-  transition: all 0.2s ease;
-}
-
-.style-selector:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
-}
-
-
-.style-label {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  color: #666666;
-  margin: 0;
-  white-space: nowrap;
-  font-weight: normal;
-}
-
-
-.style-select {
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
-  flex-shrink: 0;
-}
-
-
-.style-select .ant-select-selector {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding: 0 !important;
-  height: auto !important;
-  box-shadow: none !important;
-  min-height: auto !important;
-}
-
-.style-select .ant-select-selector:hover {
-  background: transparent !important;
-  border: none !important;
-}
-
-.style-select .ant-select-selection-item {
-  color: #666666 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding-right: 0 !important;
-}
-
-.style-select .ant-select-arrow {
-  color: #666666 !important;
-  right: 0 !important;
-}
-
-.style-select:hover .ant-select-selection-item,
-.style-selector:hover .style-label,
-.style-selector:hover .ant-select-arrow {
-  color: #495057 !important;
-}
-
-.style-select.ant-select-focused .ant-select-selector {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-
-.style-select .ant-select-selector {
-  background: #f8f9fa !important;
-  border: 1px solid #e9ecef !important;
-  border-radius: 6px !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding: 4px 12px !important;
-  height: auto !important;
-  transition: all 0.2s ease !important;
-}
-
-.style-select .ant-select-selector:hover {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-}
-
-.style-select .ant-select-selection-item {
-  color: #666666 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-}
-
-.style-select:hover .ant-select-selector {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-}
-
-.style-select .ant-select-selection-item:hover {
-  color: #495057 !important;
-}
-
-.image-preview {
-  margin-top: 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 12px;
-  background: #fafafa;
-}
-
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.preview-title {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 13px;
-  color: #666666;
-  font-weight: 600;
-}
-
-.remove-button {
-  background: #fff !important;
-  border: 1px solid #d9d9d9 !important;
-  color: #999999 !important;
-  font-size: 12px !important;
-  height: 24px !important;
-  width: 24px !important;
-  border-radius: 4px !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.remove-button:hover {
-  background: #f5f5f5 !important;
-  border-color: #ff4d4f !important;
-  color: #ff4d4f !important;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 6px;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-}
-
-.main-input {
-  border-radius: 8px !important;
-  border: 1px solid #d9d9d9 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 16px !important;
-  transition: all 0.2s ease !important;
-  resize: none !important;
-  background: #ffffff !important;
-}
-
-.main-input:hover {
-  border-color: #000000 !important;
-}
-
-.main-input:focus {
-  border-color: #000000 !important;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1) !important;
-}
-
-.submit-button {
-  border-radius: 8px !important;
-  height: 48px !important;
-  padding: 0 32px !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  background: #000000 !important;
-  border-color: #000000 !important;
-  transition: all 0.2s ease !important;
-}
-
-.submit-button:hover {
-  background: #333333 !important;
-  border-color: #333333 !important;
-  transform: translateY(-1px);
-}
-
-.submit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  color: #858585 !important;
-}
-
-.cancel-button {
-  border-radius: 8px !important;
-  height: 48px !important;
-  padding: 0 32px !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  background: #ffffff !important;
-  border-color: #ff4d4f !important;
-  color: #ff4d4f !important;
-  transition: all 0.2s ease !important;
-}
-
-.cancel-button:hover {
-  background: #ff4d4f !important;
-  border-color: #ff4d4f !important;
-  color: #ffffff !important;
-  transform: translateY(-1px);
-}
-
-.new-analysis-section {
-  margin: 30px 0;
-  text-align: center;
-}
-
-.new-analysis-button {
-  border-radius: 8px !important;
-  height: 48px !important;
-  padding: 0 32px !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  background: #ffffff !important;
-  border-color: #000000 !important;
-  color: #000000 !important;
-  transition: all 0.2s ease !important;
-}
-
-.new-analysis-button:hover {
-  background: #000000 !important;
-  border-color: #000000 !important;
-  color: #ffffff !important;
-  transform: translateY(-1px);
-}
-
-.info-section {
-  margin-top: 30px;
-}
-
-.info-text {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  color: #999999 !important;
-  font-size: 16px !important;
-  margin: 0 !important;
-}
-
-/* Footer Styles */
-.main-footer {
-  background: #f8f9fa;
-  border-top: 1px solid #e9ecef;
-  margin-top: 60px;
-  padding: 40px 0 20px;
-}
-
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  gap: 60px;
-}
-
-.footer-section {
-  flex: 1;
-}
-
-.footer-title {
-  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #000000;
-  margin: 0 0 16px 0;
-}
-
-.footer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.footer-list li {
-  margin-bottom: 8px;
-}
-
-.footer-link {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  color: #666666;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.footer-link:hover {
-  color: #000000;
-  text-decoration: none;
-}
-
-.footer-bottom {
-  border-top: 1px solid #e9ecef;
-  margin-top: 32px;
-  padding: 16px 0 0;
-  text-align: center;
-}
-
-.footer-copyright {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 12px;
-  color: #999999;
-  margin: 0;
-}
-
-.footer-links {
-  text-align: left;
-}
-
-.footer-contributors {
-  text-align: right;
-}
-
-
-/* Feature Intro Modal Styles */
-.feature-intro {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-}
-
-.feature-hero {
-  position: relative;
-  background: radial-gradient(1200px 240px at 20% -20%, #e6f0ff 0%, transparent 60%),
-              linear-gradient(135deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%);
-  border-radius: 12px;
-  padding: 28px 24px;
-  color: white;
-  overflow: hidden;
-  box-shadow: 0 6px 24px rgba(13, 110, 253, 0.15);
-}
-
-.hero-badge {
-  display: inline-block;
-  background: rgba(255, 255, 255, 0.2);
-  color: #f8fafc;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  margin-bottom: 10px;
-  backdrop-filter: blur(6px);
-}
-
-.hero-title {
-  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-  margin: 0 0 6px 0;
-}
-
-.hero-subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.hero-logo {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 150px;
-  width: auto;
-  opacity: 0.95;
-  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.15));
-}
-
-@media (max-width: 640px) {
-  .hero-logo {
-    height: 72px;
-    right: 12px;
-  }
-}
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.feature-card {
-  display: flex;
-  gap: 12px;
-  background: #ffffff;
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  border-color: #dfe6ee;
-}
-
-.card-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.card-icon-gradient {
-  background: linear-gradient(135deg, #f59e0b, #ef4444);
-  color: white;
-}
-
-.card-icon-accent {
-  background: linear-gradient(135deg, #10b981, #34d399);
-  color: white;
-}
-
-.icon-emoji {
-  font-size: 18px;
-}
-
-.openai-logo {
-  display: block;
-  width: 16px;
-  height: 16px;
-}
-
-.card-content {
-  flex: 1;
-}
-
-.card-title {
-  margin: 0 0 6px 0;
-  font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.pill {
-  display: inline-block;
-  margin-left: 6px;
-  font-size: 10px;
-  letter-spacing: 0.4px;
-  background: #111827;
-  color: white;
-  padding: 1px 6px;
-  border-radius: 999px;
-  vertical-align: middle;
-}
-
-.card-points {
-  margin: 0;
-  padding-left: 18px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.feature-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.feature-btn {
-  border-radius: 10px;
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.feature-btn.ghost {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #e5e7eb;
-}
-
-.feature-btn.ghost:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-}
-
-.feature-btn.solid {
-  background: #000000;
-  color: #ffffff;
-  border-color: #000000;
-}
-
-.feature-btn.solid:hover {
-  background: #1f2937;
-  border-color: #1f2937;
-}
-
-@media (max-width: 640px) {
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-@media (max-width: 1200px) {
-    .results-layout-wrapper.has-toc {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "left-gutter"
-            "report";
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-        gap: 0;
-    }
-    
-    .results-layout-wrapper.has-ai-ask {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "toc-area"
-            "report"
-            "ai-ask-area";
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-        gap: 0;
-    }
-    
-    .ai-ask-wrapper {
-        justify-self: stretch;
-        margin-top: 16px;
-    }
-    .toc-wrapper {
-        /* Make the whole TOC section sticky on mobile */
-        position: sticky;
-        top: 80px; /* Sticking point for tablets */
-        z-index: 90;
-
-        /* Visuals for floating state with enhanced transparency and blur */
-        background: rgba(255, 255, 255, 0.65); /* More transparent background */
-        backdrop-filter: blur(8px) saturate(1.2);
-        -webkit-backdrop-filter: blur(8px) saturate(1.2); /* For Safari */
-
-        /* Layout adjustments for full-width sticky bar */
-        justify-self: stretch;
-        /* Remove negative margin that causes overflow */
-        margin: 0;
-        padding: 0 24px; /* Match parent container padding */
-        /* Ensure it doesn't exceed viewport width */
-        max-width: 100%;
-        box-sizing: border-box;
-
-        transition: background-color 0.3s ease, border-color 0.3s ease;
-        mask: linear-gradient(to bottom, white calc(100% - 10px), transparent 100%);
-        -webkit-mask: linear-gradient(to bottom, white calc(100% - 10fpx), transparent 100%);
-    }
-
-    .toc-wrapper.is-collapsed {
-        background-color: rgba(248, 249, 250, 0.7);
-
-        /* Gradient mask for fade-out effect at bottom */
-
-        mask: linear-gradient(to bottom, white 75%, transparent 100%);
-        -webkit-mask: linear-gradient(to bottom, white 75%, transparent 100%);
-    }
-}
-
-@media (max-width: 768px) {
-    .toc-wrapper {
-        top: 70px; /* Adjust for smaller header on phones */
-    }
-}
-
-@media (max-width: 768px) {
-  .header {
-    height: 70px;
-  }
-
-  .header.mobile-expanded {
-    height: 130px;
-  }
-
-  .header-content {
-    padding: 0 16px;
-    grid-template-rows: 70px auto;
-  }
-
-  .header-row-primary {
-    height: 70px;
-  }
-
-  .header-row-secondary {
-    border-top-color: #f0f0f0;
-    display: grid;
-  }
-
-  .header-row-secondary.collapsed {
-    grid-template-rows: 0fr;
-    border-top-color: transparent;
-  }
-  .header-row-secondary .secondary-content {
-    padding: 8px 0 12px 0;
-  }
-
-  .header-row-secondary.collapsed {
-    opacity: 0;
-    transform: translateY(-10px);
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    overflow: hidden;
-    pointer-events: none; /* Prevent interaction when collapsed */
-  }
-
-  .header-row-secondary.collapsed .secondary-content {
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    filter: blur(4px);
-  }
-
-  .logo-section {
-    margin-left: -4px;
-    padding: 4px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .logo-image {
-    height: 40px !important;
-    margin-right: 6px !important;
-  }
-
-  .logo-text {
-    font-size: 20px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .header-actions {
-    gap: 0;
-    flex-shrink: 0;
-  }
-
-  .header-menu-items-wrapper-desktop {
-    display: none;
-  }
-
-  .mobile-menu-button {
-    display: block;
-    background: transparent !important;
-    border: none !important;
-    color: #000 !important;
-    font-size: 24px !important;
-    padding: 0 8px !important;
-    line-height: 1 !important;
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .mobile-menu-button.is-active {
-    transform: rotate(90deg);
-  }
-
-  .main-title {
-    font-size: 36px !important;
-  }
-
-  .max-mode-indicator {
-    font-size: 8px;
-    padding: 1px 4px;
-    bottom: 2px;
-    right: 0;
-  }
-
-  .subtitle {
-    font-size: 18px !important;
-  }
-
-  .main-container {
-    padding: 40px 16px;
-    padding-bottom: 0;
-  }
-   .results-layout-wrapper {
-        padding: 0 16px;
-    }
-
-  .examples-title {
-    font-size: 13px !important;
-  }
-
-  .example-card.rotating {
-    padding: 10px 14px;
-  }
-
-  .example-text {
-    font-size: 12px !important;
-  }
-
-  .input-controls {
-    bottom: 8px;
-    right: 8px;
-  }
-
-  .upload-button {
-    font-size: 11px !important;
-    height: 28px !important;
-  }
-
-  .preview-image {
-    max-height: 150px;
-  }
-
-  .drag-message {
-    font-size: 16px !important;
-    padding: 12px 20px;
-  }
-
-  .input-wrapper.drag-over {
-    transform: scale(1.01);
-  }
-
-  .footer-content {
-    flex-direction: column;
-    gap: 30px;
-    padding: 0 16px;
-  }
-
-  .footer-links,
-  .footer-contributors {
-    text-align: center;
-  }
-
-  .main-footer {
-    margin-top: 40px;
-    padding: 30px 0 16px;
-  }
-}
-
-/* Back to Top Button Styles */
-.back-to-top-button {
-  position: fixed;
-  bottom: 32px;
-  right: 32px;
-  width: 56px;
-  height: 56px;
-  background: #000000;
-  color: #ffffff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1000;
-  font-size: 0;
-}
-
-.back-to-top-button:hover {
-  background: #333333;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-}
-
-.back-to-top-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.back-to-top-button svg {
-  transition: transform 0.2s ease;
-}
-
-.back-to-top-button:hover svg {
-  transform: translateY(-1px);
-}
-
-/* Transition animations */
-.back-to-top-enter-active,
-.back-to-top-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.back-to-top-enter-from {
-  opacity: 0;
-  transform: translateY(20px) scale(0.8);
-}
-
-.back-to-top-leave-to {
-  opacity: 0;
-  transform: translateY(20px) scale(0.8);
-}
-
-/* AI Tools Button Styles */
-.ai-tools-container {
-  position: fixed;
-  bottom: 100px;
-  right: 32px;
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.ai-tools-button {
-  width: 56px;
-  height: 56px;
-  background: #000000;
-  color: #ffffff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0;
-}
-
-.ai-tools-button:hover {
-  background: #333333;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-}
-
-.ai-tools-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.ai-tools-button.active {
-  background: #1890ff;
-  transform: rotate(45deg);
-}
-
-.ai-tools-button.active:hover {
-  background: #40a9ff;
-}
-
-.ai-tools-button svg {
-  transition: transform 0.2s ease;
-  pointer-events: none;
-}
-
-.ai-tools-button:hover svg {
-  transform: translateY(-1px);
-}
-
-.ai-tools-button.active svg {
-  transform: none;
-}
-
-/* Bottom-left Report Bugs Button */
-.bug-report-button {
-  position: fixed;
-  bottom: 32px;
-  left: 32px;
-  z-index: 900;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 20px;
-  background: #f8f9fa;
-  border: 1px solid #d9d9d9;
-  color: #666666;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-}
-
-.bug-report-button:hover {
-  background: #e9ecef;
-  border-color: #757575;
-  color: #495057;
-  transform: translateY(-1px);
-}
-
-.bug-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.bug-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-@media (max-width: 768px) {
-  .bug-report-button {
-    bottom: 24px;
-    left: 24px;
-    height: 36px;
-    padding: 0 12px;
-  }
-  .bug-label {
-    font-size: 12px;
-  }
-}
-
-/* Workspace Button - positioned above bug report button */
-.workspace-button {
-  position: fixed;
-  bottom: 80px; /* 40px button height + 8px gap + 32px from bottom */
-  left: 32px;
-  z-index: 900;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 20px;
-  background: #f0f8ff;
-  border: 1px solid #4096ff;
-  color: #1890ff;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-}
-
-.workspace-button:hover {
-  background: #e6f4ff;
-  border-color: #1677ff;
-  color: #0958d9;
-  transform: translateY(-1px);
-}
-
-.workspace-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.workspace-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.beta-badge {
-  background: #ff4d4f;
-  color: white;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 4px;
-  border-radius: 4px;
-  margin-left: 4px;
-  letter-spacing: 0.5px;
-}
-
-@media (max-width: 768px) {
-  .workspace-button {
-    bottom: 68px; /* 36px button height + 8px gap + 24px from bottom */
-    left: 24px;
-    height: 36px;
-    padding: 0 12px;
-  }
-  .workspace-label {
-    font-size: 12px;
-  }
-}
-
-/* AI Tools Popup */
-.ai-tools-popup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.ai-tool-button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 28px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: #000000;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 160px;
-}
-
-.ai-tool-button:hover:not(.disabled) {
-  background: #f8f9fa;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.ai-tool-button.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  color: #999999;
-}
-
-.ai-tool-button svg {
-  flex-shrink: 0;
-  color: #666666;
-  pointer-events: none;
-}
-
-.ai-tool-button.ai-quick-ask-button svg {
-  color: #1890ff;
-}
-
-.ai-tool-button.ai-ppt-button svg {
-  color: #ff6b35;
-}
-
-.ai-tool-button span {
-  pointer-events: none;
-}
-
-.ai-tool-button span small {
-  font-size: 11px;
-  color: #999999;
-  font-weight: 400;
-  pointer-events: none;
-}
-
-/* AI Tools Transitions */
-.ai-tools-enter-active,
-.ai-tools-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ai-tools-enter-from {
-  opacity: 0;
-  transform: translateY(20px) scale(0.8);
-}
-
-.ai-tools-leave-to {
-  opacity: 0;
-  transform: translateY(20px) scale(0.8);
-}
-
-.ai-tools-popup-enter-active,
-.ai-tools-popup-leave-active {
-  transition: all 0.2s ease;
-}
-
-.ai-tools-popup-enter-from {
-  opacity: 0;
-  transform: translateY(10px) scale(0.95);
-}
-
-.ai-tools-popup-leave-to {
-  opacity: 0;
-  transform: translateY(10px) scale(0.95);
-}
-
-@media (max-width: 768px) {
-  .back-to-top-button {
-    bottom: 24px;
-    right: 24px;
-    width: 48px;
-    height: 48px;
-  }
-
-  .back-to-top-button svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .ai-tools-container {
-    bottom: 84px;
-    right: 24px;
-  }
-
-  .ai-tools-button {
-    width: 48px;
-    height: 48px;
-  }
-
-  .ai-tools-button svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .ai-tool-button {
-    min-width: 140px;
-    font-size: 13px;
-    padding: 10px 14px;
-  }
-
-  .ai-tool-button svg {
-    width: 16px;
-    height: 16px;
-  }
-}
-</style>
+<style scoped src="@/assets/styles/homeview/core.css"></style>
+<style scoped src="@/assets/styles/homeview/input.css"></style>
+<style scoped src="@/assets/styles/homeview/floating.css"></style>

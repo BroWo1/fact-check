@@ -100,21 +100,30 @@
       </button>
       <transition name="dropdown-fade">
         <div v-if="isMoreOpen" class="more-menu mobile-menu">
-          <div class="more-item" :class="{ active: mode === 'fact_check' }" @click.stop="$emit('update:mode', 'fact_check'); isMoreOpen = false">
+          <div class="more-item" :class="{ active: mode === 'fact_check' }" @click.stop="$emit('update:mode', 'fact_check'); isMoreOpen = false; moreToolsOpen = false">
             <span class="item-icon">🔍</span>
             <span class="item-text">{{ t('mode.factCheck') }}</span>
             <span v-if="mode === 'fact_check'" class="item-check">✓</span>
           </div>
-          <div class="more-item" :class="{ active: mode === 'research' }" @click.stop="$emit('update:mode', 'research'); isMoreOpen = false">
+          <div class="more-item" :class="{ active: mode === 'research' }" @click.stop="$emit('update:mode', 'research'); isMoreOpen = false; moreToolsOpen = false">
             <span class="item-icon">📚</span>
             <span class="item-text">{{ t('mode.research') }}</span>
             <span v-if="mode === 'research'" class="item-check">✓</span>
           </div>
-          <div class="more-item" :class="{ active: mode === 'define' }" @click.stop="selectDefine">
-            <span class="item-icon">🧠</span>
-            <span class="item-text">{{ t('mode.define') }}</span>
-            <span v-if="mode === 'define'" class="item-check">✓</span>
+          <div class="more-item more-toggle" @click.stop="toggleMoreTools">
+            <span class="item-icon">⋯</span>
+            <span class="item-text">{{ t('mode.moreTools') }}</span>
+            <span class="caret" :class="{ open: moreToolsOpen }">▼</span>
           </div>
+          <transition name="dropdown-fade">
+            <div v-if="moreToolsOpen" class="more-submenu">
+              <div class="more-item" :class="{ active: mode === 'define' }" @click.stop="selectDefine(); moreToolsOpen = false">
+                <span class="item-icon">🧠</span>
+                <span class="item-text">{{ t('mode.define') }}</span>
+                <span v-if="mode === 'define'" class="item-check">✓</span>
+              </div>
+            </div>
+          </transition>
         </div>
       </transition>
     </div>
@@ -148,14 +157,17 @@ let resizeHandler = null
 let storageHandler = null
 const isMobile = ref(false)
 const maxMode = ref(false)
+const moreToolsOpen = ref(false)
 
 const toggleMore = () => {
   isMoreOpen.value = !isMoreOpen.value
+  if (!isMoreOpen.value) moreToolsOpen.value = false
 }
 
 const selectDefine = () => {
   emit('update:mode', 'define')
   isMoreOpen.value = false
+  moreToolsOpen.value = false
 }
 
 const handleClickOutside = (e) => {
@@ -163,7 +175,11 @@ const handleClickOutside = (e) => {
   const el = moreRef.value
   if (el && !el.contains(e.target)) {
     isMoreOpen.value = false
+    moreToolsOpen.value = false
   }
+}
+const toggleMoreTools = () => {
+  moreToolsOpen.value = !moreToolsOpen.value
 }
 
 onMounted(() => {
@@ -389,6 +405,26 @@ const toggleMaxMode = () => {
   top: calc(100% + 6px);
   min-width: 220px;
   width: max-content;
+}
+
+.more-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.more-toggle .caret {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.9;
+  transition: transform 0.15s ease;
+}
+.more-toggle .caret.open {
+  transform: rotate(180deg);
+}
+
+.more-submenu {
+  padding-left: 28px;
+  padding-top: 6px;
 }
 
 .more-item {

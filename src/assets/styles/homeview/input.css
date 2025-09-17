@@ -1,0 +1,442 @@
+.input-section {
+  margin-bottom: 30px;
+}
+
+/* When showing a saved analysis, dock the input card to the bottom */
+.input-section.fixed-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(4px + env(safe-area-inset-bottom)); /* closer to bottom */
+  padding: 8px 16px calc(4px + env(safe-area-inset-bottom));
+  z-index: 1100; /* above content, below modals */
+}
+
+.input-section.fixed-bottom .input-container {
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative; /* anchor the local mask */
+}
+
+/* Compact padding when docked */
+.input-section.fixed-bottom .ppx-card .ppx-input :deep(textarea) {
+  padding: 12px 14px 52px 14px !important;
+}
+
+/* Optionally shrink the send button a touch when docked */
+.input-section.fixed-bottom .submit-square {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+/* Local white mask that only spans the card width */
+.input-section.fixed-bottom .ppx-mask {
+}
+
+.input-section.fixed-bottom .ppx-card {
+  position: relative;
+  z-index: 2; /* ensure it sits above the mask */
+}
+
+/* When docked, allow content to scroll under the dock; the fixed
+   bottom stripe above ensures it won't be visible. */
+.hidden-when-docked {
+  padding-bottom: 0;
+}
+
+.input-container {
+  width: 100%;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+/* Perplexity-style card wrapper */
+.ppx-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.ppx-top {
+  border-bottom: none; /* no inner divider since suggestions are removed */
+  padding: 0; /* the TextArea provides internal padding */
+}
+
+/* Remove inner border so the whole card looks like one piece */
+.ppx-card .ppx-input {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.ppx-card .ppx-input:hover,
+.ppx-card .ppx-input:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Add comfortable inner padding to the textarea */
+.ppx-card .ppx-input :deep(textarea) {
+  padding: 18px 16px 64px 16px !important; /* room for bottom bar; aligns with card edges */
+}
+
+/* Bring back hover/focus highlight using the outer card border */
+.ppx-card:hover {
+  border-color: #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.06);
+}
+
+.ppx-card:focus-within {
+  border-color: #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08);
+}
+
+/* Suggestion list removed */
+
+.input-wrapper.drag-over {
+  transform: scale(1.02);
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.05);
+  border: 2px dashed #000000;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.drag-message {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 18px;
+  color: #000000;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ai-ppt-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ff8c00;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.ai-ppt-indicator.fact-check-mode {
+  color: #999999;
+}
+
+.ai-ppt-indicator.fact-check-mode .ai-icon {
+  opacity: 0.6;
+}
+
+.ai-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ai-text {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.input-controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* New bottom bar inside the input wrapper */
+.input-bottom-bar {
+  position: absolute;
+  left: 16px;  /* align with textarea horizontal padding */
+  right: 16px; /* align with textarea horizontal padding */
+  bottom: 8px; /* tuck closer to card bottom border */
+  display: flex;
+  align-items: flex-end; /* align controls with the card's bottom edge */
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.left-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-button,
+.style-selector {
+  height: auto;
+  padding: 4px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  color: #666666;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  transition: all 0.2s ease;
+}
+
+.upload-button:hover,
+.style-selector:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+  color: #495057;
+}
+
+.upload-button:hover {
+  background: #e9ecef !important;
+  border-color: #dee2e6 !important;
+  color: #495057 !important;
+}
+
+.style-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 4px 12px;
+  transition: all 0.2s ease;
+}
+
+.style-selector:hover {
+  background: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.style-label {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 14px;
+  color: #666666;
+  margin: 0;
+  white-space: nowrap;
+  font-weight: normal;
+}
+
+.style-select {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  flex-shrink: 0;
+}
+
+.style-select .ant-select-selector {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding: 0 !important;
+  height: auto !important;
+  box-shadow: none !important;
+  min-height: auto !important;
+}
+
+.style-select .ant-select-selector:hover {
+  background: transparent !important;
+  border: none !important;
+}
+
+.style-select .ant-select-selection-item {
+  color: #666666 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding-right: 0 !important;
+}
+
+.style-select .ant-select-arrow {
+  color: #666666 !important;
+  right: 0 !important;
+}
+
+.style-select:hover .ant-select-selection-item,
+.style-selector:hover .style-label,
+.style-selector:hover .ant-select-arrow {
+  color: #495057 !important;
+}
+
+.style-select.ant-select-focused .ant-select-selector {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.style-select .ant-select-selector {
+  background: #f8f9fa !important;
+  border: 1px solid #e9ecef !important;
+  border-radius: 6px !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+  padding: 4px 12px !important;
+  height: auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.style-select .ant-select-selector:hover {
+  background: #e9ecef !important;
+  border-color: #dee2e6 !important;
+}
+
+.style-select .ant-select-selection-item {
+  color: #666666 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 14px !important;
+}
+
+.style-select:hover .ant-select-selector {
+  background: #e9ecef !important;
+  border-color: #dee2e6 !important;
+}
+
+.style-select .ant-select-selection-item:hover {
+  color: #495057 !important;
+}
+
+.image-preview {
+  margin-top: 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.preview-title {
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
+  font-size: 13px;
+  color: #666666;
+  font-weight: 600;
+}
+
+.remove-button {
+  background: #fff !important;
+  border: 1px solid #d9d9d9 !important;
+  color: #999999 !important;
+  font-size: 12px !important;
+  height: 24px !important;
+  width: 24px !important;
+  border-radius: 4px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.remove-button:hover {
+  background: #f5f5f5 !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.main-input {
+  border-radius: 8px !important;
+  border: 1px solid #d9d9d9 !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  resize: none !important;
+  background: #ffffff !important;
+}
+
+/* Ensure text isn't covered by the bottom bar */
+.main-input :deep(textarea) {
+  padding-bottom: 64px !important;
+}
+
+.main-input:hover {
+  border-color: #000000 !important;
+}
+
+.main-input:focus {
+  border-color: #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Square send button inside input */
+.submit-square {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  background: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  transition: all 0.2s ease !important;
+}
+
+.submit-square:hover:not(:disabled) {
+  background: #333333 !important;
+  border-color: #333333 !important;
+  transform: translateY(-1px);
+}
+
+.submit-square:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.cancel-button {
+  border-radius: 8px !important;
+  height: 48px !important;
+  padding: 0 32px !important;
+  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  background: #ffffff !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+  transition: all 0.2s ease !important;
+}
+
+.cancel-button:hover {
+  background: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+

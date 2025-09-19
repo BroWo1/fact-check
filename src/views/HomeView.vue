@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
-import { Presentation, Settings, Files, Folder } from 'lucide-vue-next'
+import { Presentation, Settings, Files, Folder, ArrowUp, Globe } from 'lucide-vue-next'
 import { Bug } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router'
-import { Input, Button, Typography, Space, Layout, Upload, notification, Modal, Select, Tooltip } from 'ant-design-vue'
+import { Input, Button, Typography, Space, Layout, Upload, notification, Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { useFactCheck } from '../composables/useFactCheck'
 import { useSavedAnalyses } from '../composables/useSavedAnalyses'
@@ -23,6 +23,7 @@ import AIContainer from '../components/AIContainer.vue'
 import TextSelectionPopup from '../components/TextSelectionPopup.vue'
 import SettingsModal from '../components/SettingsModal.vue'
 import BugReportModal from '../components/BugReportModal.vue'
+import StyleDropdown from '../components/StyleDropdown.vue'
 import sessionPersistenceService from '../services/sessionPersistenceService'
 
 // Define props
@@ -1181,47 +1182,34 @@ const getReportContent = () => {
 
                       <!-- Show style selector for research mode -->
                       <template v-if="!loadedFromSavedAnalysis && selectedMode === 'research'">
-                        <div class="style-selector">
-                          <label class="style-label">Style:</label>
-                          <Select
-                            v-model:value="selectedStyle"
-                            class="style-select"
-                            size="small"
-                          >
-                            <Select.Option value="professional">
-                              <Tooltip title="Formal, detailed analysis with comprehensive citations and structured presentation suitable for academic or business contexts" placement="right">
-                                <span>📊 Professional</span>
-                              </Tooltip>
-                            </Select.Option>
-                            <Select.Option value="informational">
-                              <Tooltip title="Clear, accessible explanations with balanced depth and readability for general audiences" placement="right">
-                                <span>📚 Informational</span>
-                              </Tooltip>
-                            </Select.Option>
-                            <Select.Option value="concise">
-                              <Tooltip title="Brief, focused summary highlighting key points and essential findings" placement="right">
-                                <span>⚡ Concise</span>
-                              </Tooltip>
-                            </Select.Option>
-                          </Select>
-                        </div>
+                        <StyleDropdown v-model="selectedStyle" />
                       </template>
                     </div>
                   </div>
 
-                  <!-- Square send button on the right -->
-                  <Button
-                    type="primary"
-                    class="submit-square"
-                    :loading="isLoading"
+                  <div class="right-controls">
+                    <span
+                      class="online-search-indicator"
+                      role="img"
+                      aria-label="Online search enabled"
+                    >
+                      <Globe :size="18" />
+                    </span>
+
+                    <!-- Square send button on the right -->
+                    <Button
+                      type="primary"
+                      class="submit-square"
+                      :loading="isLoading"
                     :disabled="loadedFromSavedAnalysis || (!inputText.trim() && !uploadedFile)"
                     :title="loadedFromSavedAnalysis ? 'Disabled when viewing saved analysis' : ''"
                     @click="handleSubmit"
                     aria-label="Send"
                   >
-                    <span v-if="!isLoading">→</span>
-                    <span v-else>…</span>
-                  </Button>
+                    <ArrowUp v-if="!isLoading" :size="16" />
+                      <span v-else>…</span>
+                    </Button>
+                  </div>
                 </div>
 
                 <div v-if="isDragOver" class="drag-overlay">

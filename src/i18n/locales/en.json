@@ -20,7 +20,12 @@
     "style": "Style",
     "concise": "Concise",
     "professional": "Professional",
-    "informational": "Informational"
+    "informational": "Informational",
+    "styleDescriptions": {
+      "professional": "Formal, detailed analysis with comprehensive citations and structured presentation suitable for academic or business contexts",
+      "informational": "Clear, accessible explanations with balanced depth and readability for general audiences",
+      "concise": "Brief, focused summary highlighting key points and essential findings"
+    }
   },
   "results": {
     "verdict": "Verdict",

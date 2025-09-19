@@ -9,7 +9,7 @@
   right: 0;
   bottom: calc(4px + env(safe-area-inset-bottom)); /* closer to bottom */
   padding: 8px 16px calc(4px + env(safe-area-inset-bottom));
-  z-index: 1100; /* above content, below modals */
+  z-index: 100; /* above content, below modals */
 }
 
 .input-section.fixed-bottom .input-container {
@@ -20,17 +20,31 @@
 
 /* Compact padding when docked */
 .input-section.fixed-bottom .ppx-card .ppx-input :deep(textarea) {
-  padding: 12px 14px 52px 14px !important;
+  padding: 12px 16px 52px 16px !important;
 }
 
 /* Optionally shrink the send button a touch when docked */
 .input-section.fixed-bottom .submit-square {
-  width: 40px !important;
-  height: 40px !important;
+  width: 36px !important;
+  height: 36px !important;
 }
 
 /* Local white mask that only spans the card width */
 .input-section.fixed-bottom .ppx-mask {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(700px, calc(100vw - 48px));
+  bottom: 0;
+  height: calc(180px + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 1) 55%,
+    rgba(255, 255, 255, 0.92) 82%,
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 
 .input-section.fixed-bottom .ppx-card {
@@ -41,7 +55,7 @@
 /* When docked, allow content to scroll under the dock; the fixed
    bottom stripe above ensures it won't be visible. */
 .hidden-when-docked {
-  padding-bottom: 0;
+  padding-bottom: calc(240px + env(safe-area-inset-bottom));
 }
 
 .input-container {
@@ -90,7 +104,6 @@
 /* Bring back hover/focus highlight using the outer card border */
 .ppx-card:hover {
   border-color: #000000 !important;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.06);
 }
 
 .ppx-card:focus-within {
@@ -172,9 +185,9 @@
   position: absolute;
   left: 16px;  /* align with textarea horizontal padding */
   right: 16px; /* align with textarea horizontal padding */
-  bottom: 8px; /* tuck closer to card bottom border */
+  bottom: 16px;
   display: flex;
-  align-items: flex-end; /* align controls with the card's bottom edge */
+  align-items: center;
   justify-content: space-between;
   z-index: 10;
 }
@@ -185,134 +198,57 @@
   gap: 12px;
 }
 
-.upload-button,
-.style-selector {
+.right-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-button {
   height: auto;
   padding: 4px 12px;
   font-size: 14px;
   border-radius: 6px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  color: #666666;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
   font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
   transition: all 0.2s ease;
-}
-
-.upload-button:hover,
-.style-selector:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
-  color: #495057;
+  box-shadow: none;
 }
 
 .upload-button:hover {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-  color: #495057 !important;
+  background: rgba(15, 23, 42, 0.06) !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 
-.style-selector {
+
+.right-controls {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 4px 12px;
+}
+
+.online-search-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #2563eb;
+  background: transparent;
   transition: all 0.2s ease;
+  margin-right: 8px;
 }
 
-.style-selector:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
+.online-search-indicator:hover {
+  background: rgba(59, 130, 246, 0.12);
 }
 
-.style-label {
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif;
-  font-size: 14px;
-  color: #666666;
-  margin: 0;
-  white-space: nowrap;
-  font-weight: normal;
-}
-
-.style-select {
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
-  flex-shrink: 0;
-}
-
-.style-select .ant-select-selector {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding: 0 !important;
-  height: auto !important;
-  box-shadow: none !important;
-  min-height: auto !important;
-}
-
-.style-select .ant-select-selector:hover {
-  background: transparent !important;
-  border: none !important;
-}
-
-.style-select .ant-select-selection-item {
-  color: #666666 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding-right: 0 !important;
-}
-
-.style-select .ant-select-arrow {
-  color: #666666 !important;
-  right: 0 !important;
-}
-
-.style-select:hover .ant-select-selection-item,
-.style-selector:hover .style-label,
-.style-selector:hover .ant-select-arrow {
-  color: #495057 !important;
-}
-
-.style-select.ant-select-focused .ant-select-selector {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.style-select .ant-select-selector {
-  background: #f8f9fa !important;
-  border: 1px solid #e9ecef !important;
-  border-radius: 6px !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-  padding: 4px 12px !important;
-  height: auto !important;
-  transition: all 0.2s ease !important;
-}
-
-.style-select .ant-select-selector:hover {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-}
-
-.style-select .ant-select-selection-item {
-  color: #666666 !important;
-  font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif !important;
-  font-size: 14px !important;
-}
-
-.style-select:hover .ant-select-selector {
-  background: #e9ecef !important;
-  border-color: #dee2e6 !important;
-}
-
-.style-select .ant-select-selection-item:hover {
-  color: #495057 !important;
+.online-search-indicator svg {
+  color: currentColor;
 }
 
 .image-preview {
@@ -392,9 +328,9 @@
 
 /* Square send button inside input */
 .submit-square {
-  width: 44px !important;
-  height: 44px !important;
-  min-width: 44px !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
   padding: 0 !important;
   border-radius: 8px !important;
   display: inline-flex !important;
@@ -407,6 +343,10 @@
   color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
   transition: all 0.2s ease !important;
+}
+
+.submit-square svg {
+  stroke: currentColor;
 }
 
 .submit-square:hover:not(:disabled) {

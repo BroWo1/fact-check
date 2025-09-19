@@ -20,7 +20,12 @@
     "style": "风格",
     "concise": "简洁",
     "professional": "专业",
-    "informational": "科普"
+    "informational": "科普",
+    "styleDescriptions": {
+      "professional": "正式且详尽的分析，包含完整引用并以结构化方式呈现，适合学术或商务场景",
+      "informational": "兼顾深度与可读性的清晰说明，方便普通读者理解",
+      "concise": "突出重点和核心发现的简短摘要"
+    }
   },
   "results": {
     "verdict": "鉴定结果",

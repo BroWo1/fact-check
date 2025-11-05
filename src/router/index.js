@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Import views
 const HomeView = () => import('../views/HomeView.vue')
 const WorkspaceView = () => import('../views/WorkspaceView.vue')
+const ChatView = () => import('../views/ChatView.vue')
 
 const routes = [
   {
@@ -14,6 +15,17 @@ const routes = [
     path: '/workspace/:id',
     name: 'Workspace',
     component: WorkspaceView,
+    props: true
+  },
+  {
+    path: '/chat',
+    name: 'Chat',
+    component: ChatView
+  },
+  {
+    path: '/chat/:conversationId',
+    name: 'ChatConversation',
+    component: ChatView,
     props: true
   },
   {

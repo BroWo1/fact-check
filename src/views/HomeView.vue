@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
-import { Presentation, Settings, Files, Folder, ArrowUp, Globe } from 'lucide-vue-next'
+import { Presentation, Settings, Files, Folder, ArrowUp, Globe, MessageSquare } from 'lucide-vue-next'
 import { Bug } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router'
 import { Input, Button, Typography, Space, Layout, Upload, notification, Modal } from 'ant-design-vue'
@@ -273,6 +273,11 @@ const handleShowFeatureIntro = () => {
 const createNewWorkspace = () => {
   const workspace = createWorkspace('New Workspace')
   router.push(`/workspace/${workspace.id}`)
+}
+
+// Navigate to chat
+const navigateToChat = () => {
+  router.push('/chat')
 }
 
 // Max mode setting (reads from localStorage like in SettingsModal)
@@ -1084,6 +1089,14 @@ const getReportContent = () => {
             <div class="header-menu-items-wrapper-desktop">
                <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
                <Button
+                 class="chat-button"
+                 @click="navigateToChat"
+                 size="small"
+               >
+                 <MessageSquare class="chat-icon" :size="14" />
+                 <span class="chat-label">Chat</span>
+               </Button>
+               <Button
                  class="settings-button"
                  @click="showSettingsModal = true"
                  size="small"
@@ -1104,6 +1117,14 @@ const getReportContent = () => {
         <div class="header-row-secondary" :class="{ 'collapsed': !isMobileMenuOpen }">
           <div class="secondary-content">
             <SavedAnalysesDropdown @select-analysis="handleSelectSavedAnalysisAndCloseMenu" />
+            <Button
+              class="chat-button"
+              @click="navigateToChat"
+              size="small"
+            >
+              <MessageSquare class="chat-icon" :size="14" />
+              <span class="chat-label">Chat</span>
+            </Button>
             <Button
               class="settings-button"
               @click="showSettingsModal = true"

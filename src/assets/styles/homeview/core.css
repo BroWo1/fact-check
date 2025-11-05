@@ -31,6 +31,10 @@
 .settings-button:hover { background: #e9ecef !important; border-color: #757575 !important; color: #495057 !important; }
 .settings-icon { font-size: 14px; }
 .settings-label { font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif; font-size: 13px; font-weight: 500; }
+.chat-button { height: 32px !important; border-radius: 6px !important; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; border: none !important; color: #ffffff !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.2s ease !important; padding: 0 12px !important; min-width: auto !important; gap: 6px !important; }
+.chat-button:hover { background: linear-gradient(135deg, #7c8fef 0%, #8b5cb3 100%) !important; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3) !important; }
+.chat-icon { font-size: 14px; }
+.chat-label { font-family: 'Crimson Text', 'LXGW Neo ZhiSong Plus', serif; font-size: 13px; font-weight: 600; }
 .mobile-menu-button { display: none; }
 .logo-text { font-family: 'Playfair Display', 'LXGW Neo ZhiSong Plus', serif !important; color: #000000 !important; margin: 0 !important; font-weight: 700 !important; font-size: 28px !important; letter-spacing: -0.5px; }
 

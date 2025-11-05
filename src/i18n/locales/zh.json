@@ -195,5 +195,23 @@
     "editPlaceholder": "描述您希望如何更改此幻灯片...",
     "regenerate": "重新生成",
     "regenerating": "重新生成中..."
+  },
+  "chat": {
+    "title": "AI对话",
+    "subtitle": "与我们的AI助手对话。提出问题、探索主题，或者随意聊天！",
+    "placeholder": "在此输入您的消息...",
+    "inputHint": "按 Enter 发送，Shift + Enter 换行",
+    "tryAsking": "试试问：",
+    "newConversation": "新建对话",
+    "conversations": "对话列表",
+    "noConversations": "还没有对话。开始一个新的吧！",
+    "deleteConversationTitle": "删除对话",
+    "deleteConversationMessage": "您确定要删除此对话吗？此操作无法撤销。",
+    "delete": "删除",
+    "cancel": "取消",
+    "you": "你",
+    "assistant": "AI助手",
+    "thinking": "思考中...",
+    "messageInputPlaceholder": "输入您的消息..."
   }
 }
